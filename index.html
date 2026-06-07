@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Budget Tracker & History</title>
+    <title>Multi-User Budget Tracker & Admin Console</title>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -15,6 +15,7 @@
             --accent-hover: #4f46e5;
             --accent-success: #10b981;
             --accent-danger: #ef4444;
+            --admin-gold: #f59e0b;
         }
 
         body {
@@ -66,6 +67,41 @@
             margin-bottom: 24px;
         }
 
+        /* Admin Controls */
+        .admin-card {
+            border: 1px dashed var(--admin-gold);
+            background: rgba(245, 158, 11, 0.05);
+        }
+        .admin-header {
+            color: var(--admin-gold);
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            font-size: 0.85rem;
+        }
+        .admin-stat {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.02);
+        }
+        .admin-actions {
+            grid-column: span 2;
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
         .input-row {
             display: grid;
             grid-template-columns: 2fr 1fr auto;
@@ -73,12 +109,12 @@
         }
 
         @media (max-width: 480px) {
-            .input-row {
-                grid-template-columns: 1fr;
-            }
+            .input-row { grid-template-columns: 1fr; }
+            .admin-grid { grid-template-columns: 1fr; }
+            .admin-actions { grid-column: span 1; flex-direction: column; }
         }
 
-        input {
+        input, select {
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--panel-border);
             border-radius: 10px;
@@ -89,13 +125,9 @@
             transition: all 0.2s ease;
         }
 
-        input:focus {
+        input:focus, select:focus {
             border-color: var(--accent-primary);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-
-        input::placeholder {
-            color: rgba(148, 163, 184, 0.5);
         }
 
         .btn {
@@ -112,15 +144,11 @@
             gap: 8px;
         }
 
-        .btn-primary {
-            background: var(--accent-primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--accent-hover);
-            transform: translateY(-1px);
-        }
+        .btn-primary { background: var(--accent-primary); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        
+        .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 0.8rem; padding: 8px 12px;}
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); }
 
         .btn-danger {
             background: rgba(239, 68, 68, 0.15);
@@ -129,11 +157,7 @@
             font-size: 0.8rem;
             border-radius: 6px;
         }
-
-        .btn-danger:hover {
-            background: var(--accent-danger);
-            color: white;
-        }
+        .btn-danger:hover { background: var(--accent-danger); color: white; }
 
         .btn-share {
             background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
@@ -141,15 +165,10 @@
             width: 100%;
             font-size: 1.1rem;
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-            margin-bottom: 35px;
+            margin-bottom: 20px;
         }
+        .btn-share:hover { transform: translateY(-2px); }
 
-        .btn-share:hover {
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-            transform: translateY(-2px);
-        }
-
-        /* History & Sections Styling */
         .section-title {
             font-size: 1.2rem;
             font-weight: 700;
@@ -162,17 +181,8 @@
             padding-bottom: 8px;
         }
 
-        .section-total {
-            color: var(--accent-success);
-            font-size: 1.1rem;
-        }
-
-        .item-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
+        .section-total { color: var(--accent-success); font-size: 1.1rem; }
+        .item-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 
         .budget-item {
             display: flex;
@@ -184,22 +194,9 @@
             border-radius: 10px;
         }
 
-        .item-title {
-            font-weight: 500;
-        }
-
-        .item-cost {
-            color: var(--text-main);
-            font-weight: 600;
-            margin-right: 10px;
-        }
-
-        .history-header {
-            font-size: 1.4rem;
-            font-weight: 800;
-            margin: 40px 0 15px 0;
-            color: #a5b4fc;
-        }
+        .item-title { font-weight: 500; }
+        .item-cost { color: var(--text-main); font-weight: 600; margin-right: 10px; }
+        .history-header { font-size: 1.4rem; font-weight: 800; margin: 40px 0 15px 0; color: #a5b4fc; }
 
         .toast {
             position: fixed;
@@ -216,31 +213,48 @@
             pointer-events: none;
             z-index: 100;
         }
-
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .empty-state {
-            text-align: center;
-            color: var(--text-muted);
-            padding: 20px 0;
-            font-style: italic;
-        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .empty-state { text-align: center; color: var(--text-muted); padding: 20px 0; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
     <header>
-        <h1>Weekly Budget & History</h1>
-        <p>Track your daily logs and look back at previous totals</p>
+        <h1>Personal Budget Terminal</h1>
+        <p>Private cloud-free tracking. Data stays safely on your device.</p>
     </header>
+
+    <div class="card admin-card">
+        <div class="admin-header">
+            <span>🛠️ Admin Dashboard (Brian)</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted)">V2.1 - Active</span>
+        </div>
+        <div class="admin-grid">
+            <div class="admin-stat">
+                <span style="color:var(--text-muted)">Total Records Saved:</span> 
+                <strong id="admin-count" style="color:var(--admin-gold)">0</strong> items
+            </div>
+            <div class="admin-stat">
+                <span style="color:var(--text-muted)">Active Currency:</span>
+                <select id="admin-currency" onchange="changeCurrency()" style="padding: 2px 5px; font-size: 0.8rem; background: #222; margin-left: 5px;">
+                    <option value="Ksh">Ksh (Kenya)</option>
+                    <option value="$">$ (USD)</option>
+                    <option value="£">£ (GBP)</option>
+                    <option value="€">€ (EUR)</option>
+                </select>
+            </div>
+            <div class="admin-actions">
+                <button class="btn btn-secondary" onclick="exportBackup()">📥 Export Backup JSON</button>
+                <button class="btn btn-secondary" style="color: var(--accent-danger)" onclick="clearAllData()">⚠️ Factory Reset App</button>
+            </div>
+        </div>
+    </div>
 
     <div class="card">
         <div class="input-row">
             <input type="text" id="item-name" placeholder="Expense description..." autocomplete="off">
-            <input type="number" id="item-amount" placeholder="Ksh 0.00" min="0" step="0.01">
+            <input type="number" id="item-amount" placeholder="0.00" min="0" step="0.01">
             <button class="btn btn-primary" onclick="addItem()">Add</button>
         </div>
     </div>
@@ -248,7 +262,7 @@
     <div class="card">
         <div class="section-title">
             <span>Today's List</span>
-            <span class="section-total">Total: Ksh <span id="today-total">0.00</span></span>
+            <span class="section-total">Total: <span class="curr-sym">Ksh</span> <span id="today-total">0.00</span></span>
         </div>
         <div class="item-list" id="today-list">
             <div class="empty-state" id="today-empty">Nothing logged yet today.</div>
@@ -260,25 +274,201 @@
     </div>
 
     <div class="history-header">Past Days Log</div>
-    <div id="history-container">
-        </div>
+    <div id="history-container"></div>
 </div>
 
 <div class="toast" id="toast">✓ Copied text layout to clipboard!</div>
 
 <script>
-    // Load existing items or start empty
+    // Load config configurations or fallback defaults
     let budgetItems = JSON.parse(localStorage.getItem('weeklyBudgetWithDates')) || [];
+    let currentCurrency = localStorage.getItem('adminCurrency') || 'Ksh';
 
-    // Initialize UI on load
+    // Set layout defaults instantly
+    document.getElementById('admin-currency').value = currentCurrency;
     updateUI();
 
-    // Utility function to get clean date string format (YYYY-MM-DD)
-    function getLocalDateString(timestamp) {
-        const date = timestamp ? new Date(timestamp) : new Date();
+    function getLocalDateString() {
+        const date = new Date();
         const offset = date.getTimezoneOffset();
         const localizedDate = new Date(date.getTime() - (offset * 60 * 1000));
         return localizedDate.toISOString().split('T')[0];
     }
 
-    // Human-friendly date translations
+    function formatDayLabel(dateStr) {
+        const todayStr = getLocalDateString();
+        const today = new Date(todayStr);
+        const target = new Date(dateStr);
+        const diffDays = Math.ceil((today - target) / (1000 * 60 * 60 * 24));
+
+        if (dateStr === todayStr) return "Today";
+        if (diffDays === 1) return "Yesterday";
+        if (diffDays > 1 && diffDays <= 7) return `${diffDays} days ago`;
+        return new Date(dateStr).toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'short' });
+    }
+
+    function addItem() {
+        const nameInput = document.getElementById('item-name');
+        const amountInput = document.getElementById('item-amount');
+        const name = nameInput.value.trim();
+        const amount = parseFloat(amountInput.value);
+
+        if (name === '' || isNaN(amount) || amount <= 0) return;
+
+        budgetItems.push({
+            id: Date.now(),
+            date: getLocalDateString(), 
+            name: name,
+            amount: amount
+        });
+        
+        saveData();
+        nameInput.value = '';
+        amountInput.value = '';
+        nameInput.focus();
+        updateUI();
+    }
+
+    function deleteItem(id) {
+        budgetItems = budgetItems.filter(item => item.id !== id);
+        saveData();
+        updateUI();
+    }
+
+    function changeCurrency() {
+        currentCurrency = document.getElementById('admin-currency').value;
+        localStorage.setItem('adminCurrency', currentCurrency);
+        updateUI();
+    }
+
+    function saveData() {
+        localStorage.setItem('weeklyBudgetWithDates', JSON.stringify(budgetItems));
+    }
+
+    function updateUI() {
+        const todayStr = getLocalDateString();
+        const todayListContainer = document.getElementById('today-list');
+        const todayEmpty = document.getElementById('today-empty');
+        const todayTotalDisplay = document.getElementById('today-total');
+        const historyContainer = document.getElementById('history-container');
+        
+        // Update currency labels instantly across elements
+        document.querySelectorAll('.curr-sym').forEach(el => el.textContent = currentCurrency);
+        document.getElementById('admin-count').textContent = budgetItems.length;
+
+        todayListContainer.querySelectorAll('.budget-item').forEach(el => el.remove());
+        historyContainer.innerHTML = '';
+
+        const groups = {};
+        budgetItems.forEach(item => {
+            if (!groups[item.date]) groups[item.date] = [];
+            groups[item.date].push(item);
+        });
+
+        // Today logic
+        let todayTotal = 0;
+        const todayItems = groups[todayStr] || [];
+        if (todayItems.length === 0) {
+            todayEmpty.style.display = 'block';
+        } else {
+            todayEmpty.style.display = 'none';
+            todayItems.forEach(item => {
+                todayTotal += item.amount;
+                todayListContainer.appendChild(createItemElement(item));
+            });
+        }
+        todayTotalDisplay.textContent = todayTotal.toLocaleString('en-KE', {minimumFractionDigits: 2});
+
+        // History logic
+        const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+        let historyCount = 0;
+
+        sortedDates.forEach(dateStr => {
+            if (dateStr === todayStr) return;
+            historyCount++;
+            const dayItems = groups[dateStr];
+            let dayTotal = 0;
+
+            const historyCard = document.createElement('div');
+            historyCard.className = 'card';
+            const listDiv = document.createElement('div');
+            listDiv.className = 'item-list';
+
+            dayItems.forEach(item => {
+                dayTotal += item.amount;
+                listDiv.appendChild(createItemElement(item));
+            });
+
+            historyCard.innerHTML = `
+                <div class="section-title">
+                    <span>${formatDayLabel(dateStr)}</span>
+                    <span class="section-total">Total: ${currentCurrency} ${dayTotal.toLocaleString('en-KE', {minimumFractionDigits: 2})}</span>
+                </div>
+            `;
+            historyCard.appendChild(listDiv);
+            historyContainer.appendChild(historyCard);
+        });
+
+        if (historyCount === 0) {
+            historyContainer.innerHTML = '<div class="empty-state">No historical entries recorded yet.</div>';
+        }
+    }
+
+    function createItemElement(item) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'budget-item';
+        itemDiv.innerHTML = `
+            <div class="item-details">
+                <span class="item-title">${item.name}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="item-cost">${currentCurrency} ${item.amount.toLocaleString('en-KE', {minimumFractionDigits: 2})}</span>
+                <button class="btn btn-danger" onclick="deleteItem(${item.id})">Delete</button>
+            </div>
+        `;
+        return itemDiv;
+    }
+
+    function copyBudgetForDad() {
+        const todayStr = getLocalDateString();
+        const todayItems = budgetItems.filter(item => item.date === todayStr);
+        if (todayItems.length === 0) return;
+
+        let total = 0;
+        let textMessage = `Hey Dad, here is my budget breakdown for today:\n\n`;
+        todayItems.forEach(item => {
+            textMessage += `• ${item.name}: ${currentCurrency} ${item.amount.toLocaleString('en-KE', {minimumFractionDigits: 2})}\n`;
+            total += item.amount;
+        });
+        textMessage += `\nTotal: ${currentCurrency} ${total.toLocaleString('en-KE', {minimumFractionDigits: 2})}\n\nThanks!`;
+
+        navigator.clipboard.writeText(textMessage).then(() => {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        });
+    }
+
+    function exportBackup() {
+        if(budgetItems.length === 0) return alert("No data found to export!");
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(budgetItems));
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", `budget_backup_${getLocalDateString()}.json`);
+        dlAnchorElem.click();
+    }
+
+    function clearAllData() {
+        if (confirm("Are you sure you want to completely erase all data from this device? This cannot be undone.")) {
+            budgetItems = [];
+            saveData();
+            updateUI();
+        }
+    }
+
+    document.getElementById('item-amount').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') addItem();
+    });
+</script>
+</body>
+</html>
