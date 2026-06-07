@@ -293,7 +293,11 @@
 <div class="toast" id="toast">✓ Copied text layout to clipboard!</div>
 
 <script>
-    let budgetItems = [];
+    // Load existing items from localStorage when the page opens, or start with an empty array
+    let budgetItems = JSON.parse(localStorage.getItem('weeklyBudget')) || [];
+
+    // Run this automatically on page load to display any saved items
+    updateUI();
 
     function addItem() {
         const nameInput = document.getElementById('item-name');
@@ -308,6 +312,9 @@
 
         budgetItems.push({ id: Date.now(), name, amount });
         
+        // Save to device memory
+        saveToLocalStorage();
+        
         nameInput.value = '';
         amountInput.value = '';
         nameInput.focus();
@@ -317,7 +324,14 @@
 
     function deleteItem(id) {
         budgetItems = budgetItems.filter(item => item.id !== id);
+        // Save the updated list after deleting an item
+        saveToLocalStorage();
         updateUI();
+    }
+
+    // Helper function to save current items to localStorage
+    function saveToLocalStorage() {
+        localStorage.setItem('weeklyBudget', JSON.stringify(budgetItems));
     }
 
     function updateUI() {
@@ -377,6 +391,12 @@
             const toast = document.getElementById('toast');
             toast.classList.add('show');
             setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            
+            // OPTIONAL: Clear the budget automatically after you successfully copy it for Dad
+            // If you want it to clear automatically, uncomment the next 3 lines:
+            // budgetItems = [];
+            // saveToLocalStorage();
+            // updateUI();
         });
     }
 
