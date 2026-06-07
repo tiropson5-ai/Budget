@@ -402,7 +402,6 @@
         }
     });
 
-    // Toggle panel drawer drawer
     function toggleDrawer(open) {
         const drawer = document.getElementById('side-drawer');
         const overlay = document.getElementById('drawer-overlay');
@@ -584,49 +583,54 @@
     async function uploadAndCreateShortLink() {
         if (budgetItems.length === 0) return alert("Write items first!");
         
-        saveCalculationToPhoneMemory(budgetItems.length, currentCalculatedTotal);
-
         const shareBtn = document.getElementById('share-btn');
         shareBtn.disabled = true;
         shareBtn.textContent = "💾 Cloud uploading...";
 
         const rawListText = document.getElementById('bulk-input').value;
+        saveCalculationToPhoneMemory(budgetItems.length, currentCalculatedTotal);
 
-        const { data, error } = await supabaseClient
-            .from('budgets')
-            .insert([{ raw_list: rawListText, items: budgetItems }])
-            .select();
+        try {
+            const { data, error } = await supabaseClient
+                .from('budgets')
+                .insert([{ raw_list: rawListText, items: budgetItems }])
+                .select();
 
-        if (error || !data) {
-            alert("Database Connection Error. Please verify Table Policies.");
+            if (error || !data || data.length === 0) {
+                console.error("Supabase Error:", error);
+                alert("Database Error: Could not save records.");
+                return;
+            }
+
+            // PERMANENT FIX: Force it to point to your live site, never local hard drive paths
+            let liveProdUrl = "https://tiropson5-ai.github.io/BUDGET/index.html";
+            const longUrl = liveProdUrl + '?id=' + data[0].id;
+            
+            fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl))
+                .then(res => res.ok ? res.text() : longUrl)
+                .then(shortUrl => {
+                    navigator.clipboard.writeText(shortUrl);
+                    showToast("✓ Link copied!");
+                })
+                .catch(() => {
+                    navigator.clipboard.writeText(longUrl);
+                    showToast("✓ Link copied!");
+                })
+                .finally(() => {
+                    document.getElementById('bulk-input').value = "";
+                    localStorage.removeItem('bulkRawTextV11');
+                    parseBulkInput();
+                });
+
+        } catch (globalError) {
+            alert("Network Error: Could not connect.");
+            console.error(globalError);
+        } finally {
             shareBtn.disabled = false;
-            return;
+            shareBtn.textContent = "Generate Link";
         }
-
-        const currentCleanBaseUrl = window.location.href.split('?')[0].split('#')[0];
-        const longUrl = currentCleanBaseUrl + '?id=' + data[0].id;
-        
-        fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl))
-            .then(res => res.ok ? res.text() : longUrl)
-            .then(shortUrl => {
-                navigator.clipboard.writeText(shortUrl);
-                showToast("✓ Link copied!");
-            })
-            .catch(() => {
-                navigator.clipboard.writeText(longUrl);
-                showToast("✓ Link copied!");
-            })
-            .finally(() => {
-                shareBtn.disabled = false;
-                shareBtn.textContent = "Generate Link";
-                
-                document.getElementById('bulk-input').value = "";
-                localStorage.removeItem('bulkRawTextV11');
-                parseBulkInput();
-            });
     }
 
-    // Generalized decision logging handler
     async function saveReviewToDb() {
         const reviewBtn = document.getElementById('review-submit-btn');
         reviewBtn.disabled = true;
@@ -650,6 +654,7 @@
         if (error) {
             alert("Database write connection dropped.");
             reviewBtn.disabled = false;
+            reviewBtn.textContent = "💾 Save Review Decisions";
         } else {
             alert("👍 Decisions recorded!");
             reviewBtn.textContent = "Saved to Database!";
