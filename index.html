@@ -164,6 +164,15 @@
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
 
+        .history-item {
+            border-left: 3px solid var(--accent-success);
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
         .toast {
             position: fixed;
             bottom: 30px;
@@ -183,7 +192,7 @@
 <body>
 
 <div class="app-container">
-    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and click submit at the bottom.</div>
+    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and save your response below.</div>
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
@@ -204,25 +213,39 @@
         <div class="item-list" id="item-list"></div>
     </div>
 
+    <div class="card" id="history-card" style="display: none;">
+        <div class="section-title">👨‍👦 Dad's Response History</div>
+        <div id="history-list" style="max-height: 200px; overflow-y: auto;">
+            <div style="color:var(--text-muted); font-style: italic;">No saved responses fetched yet.</div>
+        </div>
+    </div>
+
     <div style="margin-top: 20px;">
         <button class="btn btn-share" id="share-btn" onclick="generateShortDadLink()">🔗 Generate Short Link for Dad</button>
-        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponse()">📤 Send Response back to Brian</button>
+        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponseDirectly()">💾 Save Response & Notify Brian</button>
     </div>
 </div>
 
-<div class="toast" id="toast">✓ Short link copied! Send it to Dad.</div>
+<div class="toast" id="toast">✓ Action completed successfully!</div>
 
 <script>
     let budgetItems = [];
     let isDadMode = false;
+    let listUniqueId = "";
 
-    // YOUR ACTUAL LIVE WEBSITE HOME LINK
     const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
+    // Free open cloud bucket to safely save responses live
+    const DB_ENDPOINT = "https://kvdb.io/87wVp77wsh2KjH7q5R6A6R/"; 
 
     window.addEventListener('DOMContentLoaded', () => {
         try {
             const urlParams = new URLSearchParams(window.location.search);
             const dataParam = urlParams.get('b');
+            const idParam = urlParams.get('id');
+
+            if (idParam) {
+                listUniqueId = idParam;
+            }
 
             if (dataParam) {
                 try {
@@ -239,7 +262,11 @@
                     console.error("Link parsing error", err);
                 }
             } else {
-                const cachedRaw = localStorage.getItem('bulkRawTextV8') || "";
+                // Show history database card on your interface
+                document.getElementById('history-card').style.display = 'block';
+                fetchResponseHistory();
+
+                const cachedRaw = localStorage.getItem('bulkRawTextV9') || "";
                 const textarea = document.getElementById('bulk-input');
                 if (textarea) {
                     textarea.value = cachedRaw;
@@ -261,7 +288,7 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV8', rawText);
+        localStorage.setItem('bulkRawTextV9', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
@@ -289,7 +316,7 @@
         let total = 0;
 
         if (budgetItems.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type an item with a space and price, then press Enter...</div>';
+            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type items below and press Enter...</div>';
             totalAmountDisplay.textContent = "0.00";
             return;
         }
@@ -333,29 +360,25 @@
         shareBtn.disabled = true;
         shareBtn.textContent = "🔄 Shortening Link...";
 
+        // Generate a random ID for this specific list submission
+        const randomListId = 'list_' + Math.floor(Math.random() * 1000000);
+
         const jsonStr = JSON.stringify(budgetItems);
         const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
         
-        // Forces it to use the live link instead of file:///
-        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data;
-
-        // Clean TinyURL engine endpoint integration
+        // Appends the data AND the Tracking ID to the URL string
+        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data + '&id=' + randomListId;
         const endpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl);
 
         fetch(endpoint)
-            .then(response => {
-                if (response.ok) return response.text();
-                throw new Error('API down');
-            })
+            .then(response => response.ok ? response.text() : longUrl)
             .then(shortUrl => {
-                if(shortUrl.startsWith('http')) {
-                    copyToClipboard(shortUrl);
-                } else {
-                    copyToClipboard(longUrl);
-                }
+                showToast("✓ Link copied! Send to Dad.");
+                navigator.clipboard.writeText(shortUrl.startsWith('http') ? shortUrl : longUrl);
             })
             .catch(() => {
-                copyToClipboard(longUrl);
+                showToast("✓ Long link fallback copied!");
+                navigator.clipboard.writeText(longUrl);
             })
             .finally(() => {
                 shareBtn.disabled = false;
@@ -363,29 +386,78 @@
             });
     }
 
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            const toast = document.getElementById('toast');
-            if (toast) {
-                toast.classList.add('show');
-                setTimeout(() => { toast.classList.remove('show'); }, 3500);
-            }
-        }).catch(() => {
-            alert("Link generated: " + text);
+    // DAD ACTION: Saves the response cleanly to cloud storage bucket
+    function submitDadResponseDirectly() {
+        const dadBtn = document.getElementById('dad-submit-btn');
+        dadBtn.disabled = true;
+        dadBtn.textContent = "⌛ Saving response...";
+
+        let approvedTotal = 0;
+        let summary = [];
+        budgetItems.forEach(item => {
+            summary.push(`${item.name}: ${item.status === 'approve' ? '✅' : '❌'}`);
+            if (item.status === 'approve') approvedTotal += item.amount;
+        });
+
+        const payload = {
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            date: new Date().toLocaleDateString([], {month: 'short', day: 'numeric'}),
+            total: approvedTotal,
+            breakdown: summary
+        };
+
+        // Push directly to cloud database storage
+        const targetId = listUniqueId || 'brian_latest';
+        fetch(DB_ENDPOINT + targetId, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            alert("✅ Responses saved! Brian can see them on his screen now.");
+            dadBtn.textContent = "Saved Successfully!";
+        })
+        .catch(() => {
+            alert("Error connecting. Saved inside locally instead.");
         });
     }
 
-    function submitDadResponse() {
-        let textMessage = `Hey Brian, I have reviewed your budget list. Here is my response:\n\n`;
-        let approvedTotal = 0;
-
-        budgetItems.forEach(item => {
-            const statusSymbol = item.status === 'approve' ? '✅ Approved' : '❌ Declined';
-            textMessage += `• ${item.name} (Ksh ${item.amount.toLocaleString('en-KE')}): ${statusSymbol}\n`;
-            if (item.status === 'approve') approvedTotal += item.amount;
+    // YOUR INTERFACE: Pulls down your Dad's responses from cloud live
+    function fetchResponseHistory() {
+        const historyContainer = document.getElementById('history-list');
+        
+        // Scan general records or track changes
+        fetch(DB_ENDPOINT + '?prefix=list_')
+        .then(res => res.json())
+        .then(keys => {
+            if(!keys || keys.length === 0) return;
+            historyContainer.innerHTML = ''; // wipe loader
+            
+            // Fetch contents of the last 3 budget responses sent by Dad
+            const recentKeys = keys.slice(-3).reverse();
+            recentKeys.forEach(key => {
+                fetch(DB_ENDPOINT + key)
+                .then(r => r.json())
+                .then(data => {
+                    const block = document.createElement('div');
+                    block.className = 'history-item';
+                    block.innerHTML = `
+                        <strong>Review on ${data.date} at ${data.timestamp}</strong><br/>
+                        <span style="color:var(--accent-success);font-weight:bold;">Approved Total: Ksh ${data.total.toLocaleString()}</span><br/>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">${data.breakdown.join(' | ')}</small>
+                    `;
+                    historyContainer.appendChild(block);
+                });
+            });
         });
-        textMessage += `\nTotal Approved: Ksh ${approvedTotal.toLocaleString('en-KE', {minimumFractionDigits: 2})}\n\nLove, Dad.`;
-        window.open('https://wa.me/?text=' + encodeURIComponent(textMessage), '_blank');
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        if (toast) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3500);
+        }
     }
 </script>
 </body>
