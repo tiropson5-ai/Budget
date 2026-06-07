@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bulk Budget Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -30,16 +31,8 @@
             box-sizing: border-box;
         }
 
-        .app-container {
-            width: 100%;
-            max-width: 650px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
+        .app-container { width: 100%; max-width: 650px; }
+        header { text-align: center; margin-bottom: 30px; }
         header h1 {
             font-size: 2.2rem;
             font-weight: 800;
@@ -72,11 +65,7 @@
             margin-bottom: 24px;
         }
 
-        .bulk-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        .bulk-container { display: flex; flex-direction: column; gap: 12px; }
 
         textarea {
             background: rgba(15, 23, 42, 0.6);
@@ -112,11 +101,7 @@
             font-size: 1.1rem;
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
         }
-        .btn-share:disabled {
-            background: #475569;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
+        .btn-share:disabled { background: #475569; cursor: not-allowed; box-shadow: none; }
 
         .btn-submit-dad {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -163,7 +148,7 @@
         .dad-toggle input[type="radio"] { display: none; }
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
-
+sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc
         .history-item {
             border-left: 3px solid var(--accent-success);
             padding: 12px;
@@ -171,15 +156,6 @@
             background: rgba(255,255,255,0.03);
             border-radius: 8px;
             font-size: 0.9rem;
-        }
-
-        .clear-btn {
-            background: none;
-            border: none;
-            color: var(--accent-danger);
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
         }
 
         .toast {
@@ -201,7 +177,7 @@
 <body>
 
 <div class="app-container">
-    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and tap submit to automatically update Brian's history panel.</div>
+    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Approve/Reject below and hit save.</div>
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
@@ -223,82 +199,60 @@
     </div>
 
     <div class="card" id="history-card" style="display: none;">
-        <div class="section-title">
-            <span>👨‍👦 Dad's Saved Responses Log</span>
-            <button class="clear-btn" onclick="clearHistory()">Clear History</button>
-        </div>
+        <div class="section-title">👨‍👦 Live Response Logs from Database</div>
         <div id="history-list" style="max-height: 250px; overflow-y: auto;">
-            <div style="color:var(--text-muted); font-style: italic;">No logs recorded yet. When Dad sends his short link back, it saves right here.</div>
+            <div style="color:var(--text-muted); font-style: italic;">Checking cloud records...</div>
         </div>
     </div>
 
     <div style="margin-top: 20px;">
-        <button class="btn btn-share" id="share-btn" onclick="generateShortDadLink()">🔗 Generate Short Link for Dad</button>
-        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponseDirectly()">📤 Submit and Generate Log Link</button>
+        <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">🔗 Generate Short Link for Dad</button>
+        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="saveDadReviewToDb()">💾 Save Review Decisions</button>
     </div>
 </div>
 
-<div class="toast" id="toast">✓ Link copied successfully!</div>
+<div class="toast" id="toast">✓ Linked Copied!</div>
 
 <script>
+    // Configured directly to your real Database cluster endpoints
+    const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
+    
+    const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
+    
+    let supabaseClient;
     let budgetItems = [];
     let isDadMode = false;
+    let databaseRowId = null;
 
-    const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
+    window.addEventListener('DOMContentLoaded', async () => {
+        // Initialize Connection Safely
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        databaseRowId = urlParams.get('id');
 
-    window.addEventListener('DOMContentLoaded', () => {
-        try {
-            const urlParams = new URLSearchParams(window.location.search);
-            const dataParam = urlParams.get('b');
-            const responseParam = urlParams.get('r'); // New detection flag for Dad's approved logs
+        if (databaseRowId) {
+            isDadMode = true;
+            document.getElementById('dad-banner').style.display = 'block';
+            document.getElementById('input-card').style.display = 'none';
+            document.getElementById('share-btn').style.display = 'none';
+            document.getElementById('dad-submit-btn').style.display = 'inline-flex';
+            document.getElementById('app-title').textContent = "Review Brian's Budget";
+            
+            await fetchBudgetRecordFromDb(databaseRowId);
+        } else {
+            document.getElementById('history-card').style.display = 'block';
+            fetchLiveDatabaseLogs();
 
-            if (responseParam) {
-                // BRAIN'S SCREEN: Catch the responses coming back from Dad and save them
-                try {
-                    const decodedResponse = JSON.parse(decodeURIComponent(escape(atob(responseParam.replace(/\s/g, '')))));
-                    saveToLocalHistory(decodedResponse);
-                    
-                    // Clean URL query bars immediately so refresh doesn't duplicate items
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch(e) {
-                    console.error("Failed to parse response payload", e);
-                }
+            const cachedRaw = localStorage.getItem('bulkRawTextV11') || "";
+            const textarea = document.getElementById('bulk-input');
+            if (textarea) {
+                textarea.value = cachedRaw;
+                textarea.addEventListener('keyup', parseBulkInput);
+                if (cachedRaw.trim() !== "") parseBulkInput();
             }
-
-            if (dataParam) {
-                // DAD'S REVIEW SCREEN
-                try {
-                    const decodedData = decodeURIComponent(escape(atob(dataParam.replace(/\s/g, ''))));
-                    budgetItems = JSON.parse(decodedData);
-                    isDadMode = true;
-                    
-                    document.getElementById('dad-banner').style.display = 'block';
-                    document.getElementById('input-card').style.display = 'none';
-                    document.getElementById('share-btn').style.display = 'none';
-                    document.getElementById('dad-submit-btn').style.display = 'inline-flex';
-                    document.getElementById('app-title').textContent = "Review Brian's Budget";
-                } catch(err) {
-                    console.error("Link parsing error", err);
-                }
-            } else {
-                // NORMAL SCREEN FOR BRIAN
-                document.getElementById('history-card').style.display = 'block';
-                renderHistoryLogs();
-
-                const cachedRaw = localStorage.getItem('bulkRawTextV10') || "";
-                const textarea = document.getElementById('bulk-input');
-                if (textarea) {
-                    textarea.value = cachedRaw;
-                    textarea.addEventListener('keyup', parseBulkInput);
-                    if (cachedRaw.trim() !== "") {
-                        parseBulkInput();
-                    }
-                }
-            }
-        } catch (globalErr) {
-            console.error(globalErr);
         }
-        updateUI();
     });
 
     function parseBulkInput() {
@@ -307,7 +261,7 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV10', rawText);
+        localStorage.setItem('bulkRawTextV11', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
@@ -335,24 +289,22 @@
         let total = 0;
 
         if (budgetItems.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type items below and press Enter...</div>';
+            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type list items and hit Enter...</div>';
             totalAmountDisplay.textContent = "0.00";
             return;
         }
 
         budgetItems.forEach(item => {
-            total += item.amount;
+            if (!isDadMode || item.status === 'approve') total += item.amount;
+            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'budget-item';
-            
             itemDiv.innerHTML = `
-                <div class="item-details">
-                    <span class="item-title">${item.name}</span>
-                </div>
+                <div><span>${item.name}</span></div>
                 <div style="display: flex; align-items: center; gap: 14px;">
-                    <span style="font-weight:600;">Ksh ${item.amount.toLocaleString('en-KE',{minimumFractionDigits:2})}</span>
+                    <span style="font-weight:600; color:${item.status==='reject'?'var(--accent-danger)':'white'}">Ksh ${item.amount.toLocaleString('en-KE')}</span>
                     ${isDadMode ? `
-                        <div class="dad-toggle" style="display: flex; gap: 8px;">
+                        <div class="dad-toggle">
                             <input type="radio" id="app-${item.id}" name="status-${item.id}" value="approve" ${item.status === 'approve' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'approve')">
                             <label for="app-${item.id}">✔️</label>
                             <input type="radio" id="rej-${item.id}" name="status-${item.id}" value="reject" ${item.status === 'reject' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'reject')">
@@ -370,29 +322,40 @@
     function updateItemStatus(id, newStatus) {
         const item = budgetItems.find(i => i.id === id);
         if (item) item.status = newStatus;
+        updateUI();
     }
 
-    function generateShortDadLink() {
-        if (budgetItems.length === 0) return alert("Type your items first!");
+    async function uploadAndCreateShortLink() {
+        if (budgetItems.length === 0) return alert("Write items first!");
         
         const shareBtn = document.getElementById('share-btn');
         shareBtn.disabled = true;
-        shareBtn.textContent = "🔄 Shortening Link...";
+        shareBtn.textContent = "💾 Cloud uploading...";
 
-        const jsonStr = JSON.stringify(budgetItems);
-        const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
-        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data;
-        const endpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl);
+        const rawListText = document.getElementById('bulk-input').value;
 
-        fetch(endpoint)
-            .then(response => response.ok ? response.text() : longUrl)
+        const { data, error } = await supabaseClient
+            .from('budgets')
+            .insert([{ raw_list: rawListText, items: budgetItems }])
+            .select();
+
+        if (error || !data) {
+            alert("Database Error: Make sure you ran the SQL script and added your Anon key.");
+            shareBtn.disabled = false;
+            return;
+        }
+
+        const longUrl = LIVE_WEBSITE_URL + '?id=' + data[0].id;
+        
+        fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl))
+            .then(res => res.ok ? res.text() : longUrl)
             .then(shortUrl => {
-                showToast("✓ Short link copied! Send it to Dad.");
-                navigator.clipboard.writeText(shortUrl.startsWith('http') ? shortUrl : longUrl);
+                navigator.clipboard.writeText(shortUrl);
+                showToast("✓ Clean short link copied for Dad!");
             })
             .catch(() => {
                 navigator.clipboard.writeText(longUrl);
-                showToast("✓ Link copied!");
+                showToast("✓ Tracker identifier link copied!");
             })
             .finally(() => {
                 shareBtn.disabled = false;
@@ -400,84 +363,75 @@
             });
     }
 
-    // DAD ACTION: Generates his final responses back into a link format safely
-    function submitDadResponseDirectly() {
+    async function saveDadReviewToDb() {
         const dadBtn = document.getElementById('dad-submit-btn');
         dadBtn.disabled = true;
-        dadBtn.textContent = "⌛ Building safe redirection link...";
+        dadBtn.textContent = "⌛ Saving decisions...";
 
         let approvedTotal = 0;
-        let summary = [];
         budgetItems.forEach(item => {
-            summary.push(`${item.name}: ${item.status === 'approve' ? '✅' : '❌'}`);
             if (item.status === 'approve') approvedTotal += item.amount;
         });
 
-        const logData = {
-            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            date: new Date().toLocaleDateString([], {month: 'short', day: 'numeric'}),
-            total: approvedTotal,
-            breakdown: summary
-        };
-
-        const responseHash = btoa(unescape(encodeURIComponent(JSON.stringify(logData))));
-        const longReturnUrl = LIVE_WEBSITE_URL + '?r=' + responseHash;
-        const shortenerEndpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longReturnUrl);
-
-        fetch(shortenerEndpoint)
-            .then(res => res.ok ? res.text() : longReturnUrl)
-            .then(shortReturnUrl => {
-                alert("🎉 Review Complete!\n\nClick OK to automatically redirect your answer back onto Brian's website layout log.");
-                window.location.href = shortReturnUrl;
+        const { error } = await supabaseClient
+            .from('budgets')
+            .update({ 
+                items: budgetItems, 
+                dad_approved_total: approvedTotal, 
+                is_reviewed: true,
+                dad_reviewed_at: new Date().toISOString()
             })
-            .catch(() => {
-                window.location.href = longReturnUrl;
-            });
-    }
+            .eq('id', databaseRowId);
 
-    // SAVING LOGIC: Appends Dad's tracking configurations directly into history log
-    function saveToLocalHistory(logObject) {
-        let currentHistory = JSON.parse(localStorage.getItem('budget_logs_v10')) || [];
-        
-        // Prevent duplicate logging if they click reload
-        const isDuplicate = currentHistory.some(h => h.timestamp === logObject.timestamp && h.date === logObject.date && h.total === logObject.total);
-        if (!isDuplicate) {
-            currentHistory.unshift(logObject); // add to top of stack
-            localStorage.setItem('budget_logs_v10', JSON.stringify(currentHistory));
+        if (error) {
+            alert("Database write connection dropped.");
+            dadBtn.disabled = false;
+        } else {
+            alert("👍 Decisions recorded! Brian can see them right now on his screen.");
+            dadBtn.textContent = "Saved to Database!";
         }
-        renderHistoryLogs();
     }
 
-    // RENDER LOGIC: Reads stored files from system local allocation block
-    function renderHistoryLogs() {
-        const historyContainer = document.getElementById('history-list');
-        if(!historyContainer) return;
+    async function fetchBudgetRecordFromDb(id) {
+        const { data, error } = await supabaseClient.from('budgets').select('*').eq('id', id).single();
+        if (!error && data) {
+            budgetItems = data.items;
+            updateUI();
+        }
+    }
 
-        const savedLogs = JSON.parse(localStorage.getItem('budget_logs_v10')) || [];
-        if(savedLogs.length === 0) return;
+    async function fetchLiveDatabaseLogs() {
+        const listDisplay = document.getElementById('history-list');
+        
+        const { data, error } = await supabaseClient
+            .from('budgets')
+            .select('*')
+            .eq('is_reviewed', true)
+            .order('dad_reviewed_at', { ascending: false })
+            .limit(5);
 
-        historyContainer.innerHTML = '';
-        savedLogs.forEach(data => {
+        if (error || !data || data.length === 0) {
+            listDisplay.innerHTML = '<div style="color:var(--text-muted); font-style: italic;">No records found yet. Logs will populate here instantly when Dad saves.</div>';
+            return;
+        }
+
+        listDisplay.innerHTML = '';
+        data.forEach(row => {
+            let breakdownSummary = row.items.map(i => `${i.name}: ${i.status==='approve'?'✅':'❌'}`).join(' | ');
+            let timeStr = new Date(row.dad_reviewed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            let dateStr = new Date(row.dad_reviewed_at).toLocaleDateString([], {month: 'short', day: 'numeric'});
+            
             const logBlock = document.createElement('div');
             logBlock.className = 'history-item';
             logBlock.innerHTML = `
-                <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:4px; font-size:0.95rem;">
-                    <span>📅 Review: ${data.date} (${data.timestamp})</span>
-                    <span style="color:var(--accent-success)">Ksh ${data.total.toLocaleString('en-KE', {minimumFractionDigits:2})}</span>
+                <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.95rem;">
+                    <span>📅 Saved on: ${dateStr} (${timeStr})</span>
+                    <span style="color:var(--accent-success)">Ksh ${parseFloat(row.dad_approved_total).toLocaleString()}</span>
                 </div>
-                <div style="color:var(--text-muted); font-size:0.8rem; line-height:1.4;">
-                    ${data.breakdown.join(' | ')}
-                </div>
+                <div style="color:var(--text-muted); font-size:0.8rem; margin-top:4px; line-height:1.4;">${breakdownSummary}</div>
             `;
-            historyContainer.appendChild(logBlock);
+            listDisplay.appendChild(logBlock);
         });
-    }
-
-    function clearHistory() {
-        if(confirm("Are you sure you want to completely clear Dad's saved response logs?")) {
-            localStorage.removeItem('budget_logs_v10');
-            location.reload();
-        }
     }
 
     function showToast(message) {
