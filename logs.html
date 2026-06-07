@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dad's Budget Approvals Archive</title>
+    <title>Saved Approvals History</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #0f1123 100%);
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
             --panel-bg: rgba(30, 41, 59, 0.7);
             --panel-border: rgba(255, 255, 255, 0.08);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
+            --accent-primary: #6366f1;
+            --accent-hover: #4f46e5;
             --accent-success: #10b981;
             --accent-danger: #ef4444;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg-gradient);
             color: var(--text-main);
             min-height: 100vh;
@@ -28,247 +30,359 @@
             box-sizing: border-box;
         }
 
-        .app-container { width: 100%; max-width: 700px; }
-        
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            gap: 15px;
-            flex-wrap: wrap;
+        .app-container {
+            width: 100%;
+            max-width: 650px;
         }
-        
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
         header h1 {
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             font-weight: 800;
-            margin: 0;
-            background: linear-gradient(to right, #38bdf8, #a5b4fc);
+            margin: 0 0 14px 0;
+            background: linear-gradient(to right, #fff, #a5b4fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            flex-grow: 1;
         }
 
-        .action-group {
+        .header-actions {
             display: flex;
-            gap: 10px;
-            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 10px;
         }
 
-        .nav-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--panel-border);
-            color: var(--text-main);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            text-decoration: none;
-            font-size: 0.9rem;
-            white-space: nowrap;
-        }
-
-        .btn-clear-all {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid var(--accent-danger);
-            color: #fca5a5;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            display: none; /* Shown dynamically if logs exist */
-            transition: all 0.2s ease;
-        }
-        .btn-clear-all:hover {
-            background: var(--accent-danger);
-            color: white;
-        }
-
-        .archive-card {
+        .card {
             background: var(--panel-bg);
             backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--panel-border);
             border-radius: 16px;
             padding: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-            margin-bottom: 20px;
-            position: relative;
+            margin-bottom: 24px;
         }
 
-        .archive-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--panel-border);
-            padding-bottom: 12px;
-            margin-bottom: 14px;
-            gap: 10px;
-        }
-
-        .header-meta {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .right-controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .total-badge {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid var(--accent-success);
-            color: #34d399;
-            padding: 4px 12px;
-            border-radius: 20px;
+        .section-title {
+            font-size: 1.1rem;
             font-weight: 700;
-            white-space: nowrap;
+            margin: 0 0 12px 0;
+            color: #fff;
         }
 
-        .btn-delete {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: var(--accent-danger);
-            border-radius: 8px;
-            padding: 6px 10px;
+        textarea {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            color: var(--text-main);
+            padding: 14px;
+            font-size: 1rem;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
             cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-        }
-        .btn-delete:hover {
-            background: var(--accent-danger);
-            color: white;
+            gap: 8px;
+            transition: all 0.2s ease;
+            text-decoration: none;
         }
 
-        .item-row {
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+        }
+        .btn-back:hover { background: rgba(255, 255, 255, 0.15); }
+
+        .btn-clear {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--accent-danger);
+            color: #fca5a5;
+        }
+        .btn-clear:hover { background: var(--accent-danger); color: white; }
+
+        .log-group-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .log-group-header {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            font-size: 0.95rem;
-            border-bottom: 1px solid rgba(255,255,255,0.02);
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 8px;
         }
 
-        .status-approved { color: var(--accent-success); font-weight: bold; }
-        .status-declined { color: var(--accent-danger); font-weight: bold; text-decoration: line-through; opacity: 0.6; }
+        .log-date {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .log-badge-total {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-success);
+            color: #a7f3d0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .log-items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .log-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+            color: #e2e8f0;
+        }
+
+        .status-dot {
+            font-size: 0.85rem;
+            margin-left: 6px;
+        }
+
+        .delete-log-btn {
+            background: none;
+            border: none;
+            color: var(--accent-danger);
+            cursor: pointer;
+            font-size: 1.1rem;
+            opacity: 0.6;
+            padding: 4px;
+        }
+        .delete-log-btn:hover { opacity: 1; }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            font-style: italic;
+            padding: 40px 0;
+        }
     </style>
 </head>
 <body>
 
 <div class="app-container">
     <header>
-        <h1>📋 Saved Approvals History</h1>
-        <div class="action-group">
-            <button id="clear-all-btn" class="btn-clear-all" onclick="clearAllRecords()">💥 Clear All History</button>
-            <a href="index.html" class="nav-btn">⬅️ Back to Calculator</a>
+        <h1>Saved Approvals History</h1>
+        <div class="header-actions">
+            <button class="btn btn-clear" onclick="clearAllDatabaseLogs()">💥 Clear All History</button>
+            <a href="index.html" class="btn btn-back">← Back to Calculator</a>
         </div>
     </header>
 
-    <div id="archive-target">
-        <div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 40px;">
-            Loading records directly from database...
-        </div>
+    <div class="card">
+        <div class="section-title">✨ Paste Messy Text Response Layout</div>
+        <textarea id="messy-input" rows="4" placeholder="Paste incoming layout messaging text lists directly here..."></textarea>
+        <button class="btn btn-primary" onclick="cleanAndSaveInput()" style="margin-top: 14px;">⚡ Clean & Save to History</button>
+    </div>
+
+    <div id="logs-list-target">
+        <div class="empty-state">Loading cloud database logs...</div>
     </div>
 </div>
 
 <script>
     const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc";
+    
     let supabaseClient;
 
-    window.addEventListener('DOMContentLoaded', async () => {
+    window.addEventListener('DOMContentLoaded', () => {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        fetchRecords();
+        fetchAndRenderLogs();
     });
 
-    async function fetchRecords() {
-        const target = document.getElementById('archive-target');
-        const clearAllBtn = document.getElementById('clear-all-btn');
-        target.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 40px;">Refreshing archive logs...</div>';
+    async function fetchAndRenderLogs() {
+        const target = document.getElementById('logs-list-target');
+        if (!target) return;
 
-        const { data, error } = await supabaseClient
-            .from('budgets')
-            .select('*')
-            .eq('is_reviewed', true)
-            .order('dad_reviewed_at', { ascending: false });
+        try {
+            // Fetch everything that has been reviewed ordered by latest entry timestamps
+            const { data, error } = await supabaseClient
+                .from('budgets')
+                .select('*')
+                .eq('is_reviewed', true)
+                .order('dad_reviewed_at', { ascending: false });
 
-        if (error || !data || data.length === 0) {
-            target.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">No saved budget responses found inside the cloud database.</div>';
-            clearAllBtn.style.display = 'none';
-            return;
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                target.innerHTML = '<div class="empty-state">No saved responses or verified logs found in the cloud database.</div>';
+                return;
+            }
+
+            target.innerHTML = '';
+
+            data.forEach(record => {
+                const reviewDate = record.dad_reviewed_at ? new Date(record.dad_reviewed_at) : new Date();
+                const displayDate = reviewDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+                const displayTime = reviewDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                const groupCard = document.createElement('div');
+                groupCard.className = 'log-group-card';
+
+                // Build header layout rows 
+                let headerHtml = `
+                    <div class="log-group-header">
+                        <div>
+                            <div class="log-date">📅 ${displayDate}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Saved at ${displayTime}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="log-badge-total">
+                                <span>Approved:</span>
+                                <span>Ksh ${(record.dad_approved_total || 0).toLocaleString('en-KE')}</span>
+                            </div>
+                            <button class="delete-log-btn" onclick="deleteRecord('${record.id}')" title="Delete log entry">🗑️</button>
+                        </div>
+                    </div>
+                `;
+
+                // Build item breakdowns list elements mapping status states safely
+                let itemsListHtml = '<div class="log-items-list">';
+                if (Array.isArray(record.items)) {
+                    record.items.forEach(item => {
+                        const isApproved = item.status === 'approve';
+                        itemsListHtml += `
+                            <div class="log-item-row" style="opacity: ${isApproved ? '1' : '0.45'}">
+                                <span style="${!isApproved ? 'text-decoration: line-through;' : ''}">${item.name}</span>
+                                <span style="font-weight:600;">
+                                    Ksh ${parseFloat(item.amount).toLocaleString('en-KE')}
+                                    <span class="status-dot">${isApproved ? '✔️' : '❌'}</span>
+                                </span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    itemsListHtml += '<div class="empty-state" style="padding:10px 0;">No individual item data entries tracked.</div>';
+                }
+                itemsListHtml += '</div>';
+
+                groupCard.innerHTML = headerHtml + itemsListHtml;
+                target.appendChild(groupCard);
+            });
+
+        } catch (err) {
+            console.error("Fetch Log Error Details:", err);
+            target.innerHTML = '<div class="empty-state" style="color:var(--accent-danger)">Failed to synchronize updates with cloud database logs.</div>';
+        }
+    }
+
+    async function cleanAndSaveInput() {
+        const textarea = document.getElementById('messy-input');
+        if (!textarea || !textarea.value.trim()) return alert("Paste text entries first!");
+
+        const text = textarea.value;
+        const lines = text.split('\n');
+        let parsedItems = [];
+        let calculatedTotal = 0;
+
+        lines.forEach((line, index) => {
+            const cleanLine = line.trim();
+            if (cleanLine === '' || cleanLine.toLowerCase().includes('total approved:')) return;
+
+            if (cleanLine.includes('Ksh') || cleanLine.includes('ksh')) {
+                let name = cleanLine.replace(/[•\-\*]/g, '').split('(Ksh')[0].split('(ksh')[0].trim();
+                let amountMatch = cleanLine.match(/(?:Ksh|ksh)\s*([\d,.]+)/);
+                let amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
+                
+                let isRejected = cleanLine.includes('❌') || cleanLine.toLowerCase().includes('declined');
+                let status = isRejected ? 'reject' : 'approve';
+
+                if (name && !isNaN(amount) && amount > 0) {
+                    parsedItems.push({ id: index, name, amount, status });
+                    if (status === 'approve') calculatedTotal += amount;
+                }
+            }
+        });
+
+        if (parsedItems.length === 0) {
+            return alert("Could not match or filter out valid currency line items. Check input structures syntax formatting.");
         }
 
-        clearAllBtn.style.display = 'inline-block';
-        target.innerHTML = '';
-        
-        data.forEach(row => {
-            let dateObj = new Date(row.dad_reviewed_at);
-            let timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            let dateStr = dateObj.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
+        try {
+            const { error } = await supabaseClient
+                .from('budgets')
+                .insert([{
+                    raw_list: text,
+                    items: parsedItems,
+                    is_reviewed: true,
+                    dad_approved_total: calculatedTotal,
+                    dad_reviewed_at: new Date().toISOString()
+                }]);
 
-            const card = document.createElement('div');
-            card.className = 'archive-card';
-            
-            let itemsHtml = row.items.map(item => `
-                <div class="item-row">
-                    <span style="${item.status === 'reject' ? 'opacity: 0.5;' : ''}">${item.name}</span>
-                    <span class="${item.status === 'approve' ? 'status-approved' : 'status-declined'}">
-                        Ksh ${item.amount.toLocaleString()} ${item.status === 'approve' ? '✅' : '❌'}
-                    </span>
-                </div>
-            `).join('');
+            if (error) throw error;
 
-            card.innerHTML = `
-                <div class="archive-header">
-                    <div class="header-meta">
-                        <div style="font-weight: 700; font-size: 1.1rem;">📅 ${dateStr}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Saved at ${timeStr}</div>
-                    </div>
-                    <div class="right-controls">
-                        <div class="total-badge">Approved: Ksh ${parseFloat(row.dad_approved_total).toLocaleString()}</div>
-                        <button class="btn-delete" onclick="deleteRecord('${row.id}')" title="Delete this entry">🗑️</button>
-                    </div>
-                </div>
-                <div>${itemsHtml}</div>
-            `;
-            target.appendChild(card);
-        });
+            textarea.value = '';
+            await fetchAndRenderLogs();
+
+        } catch (err) {
+            console.error("Insertion Log Error Details:", err);
+            alert("Database Error: Could not save layout log text.");
+        }
     }
 
     async function deleteRecord(id) {
-        if (!confirm("Are you sure you want to delete this specific review response?")) return;
-
-        const { error } = await supabaseClient
-            .from('budgets')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert("Database Error: Could not delete record.");
-        } else {
-            fetchRecords();
+        if (!confirm("Are you sure you want to permanently delete this record from history?")) return;
+        try {
+            const { error } = await supabaseClient.from('budgets').delete().eq('id', id);
+            if (error) throw error;
+            await fetchAndRenderLogs();
+        } catch (err) {
+            alert("Could not process deletion request execution parameters.");
+            console.error(err);
         }
     }
 
-    async function clearAllRecords() {
-        const doubleCheck = confirm("🚨 WARNING:\n\nYou are about to permanently delete ALL history logs inside the database.\n\nThis action cannot be undone. Do you want to proceed?");
-        if (!doubleCheck) return;
-
-        const { error } = await supabaseClient
-            .from('budgets')
-            .delete()
-            .eq('is_reviewed', true);
-
-        if (error) {
-            alert("Database Error: Could not clear all records.");
-        } else {
-            alert("💥 All history logs cleared successfully!");
-            fetchRecords();
+    async function clearAllDatabaseLogs() {
+        if (!confirm("⚠️ This action completely purges ALL tracking records from your database storage history! Continue?")) return;
+        try {
+            const { error } = await supabaseClient.from('budgets').delete().eq('is_reviewed', true);
+            if (error) throw error;
+            await fetchAndRenderLogs();
+        } catch (err) {
+            alert("Could not complete clean swipe operations process execution mapping logs parameters.");
+            console.error(err);
         }
     }
 </script>
