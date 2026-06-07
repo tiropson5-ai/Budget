@@ -29,10 +29,18 @@
             display: flex;
             justify-content: center;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
 
-        .app-container { width: 100%; max-width: 650px; }
-        header { text-align: center; margin-bottom: 20px; }
+        .app-container { width: 100%; max-width: 650px; position: relative; }
+        
+        header { 
+            position: relative;
+            text-align: center; 
+            margin-bottom: 20px; 
+            padding-right: 40px; /* Space for the 3-dots button */
+        }
+        
         header h1 {
             font-size: 2.2rem;
             font-weight: 800;
@@ -40,6 +48,84 @@
             background: linear-gradient(to right, #fff, #a5b4fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        /* Modern 3-Dot Options Button Configuration */
+        .options-menu-btn {
+            position: absolute;
+            right: 0;
+            top: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.4rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+        .options-menu-btn:hover { background: rgba(255, 255, 255, 0.15); }
+
+        /* Slide-Out Personal Side Drawer Panel Layout */
+        .side-drawer {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 85%;
+            max-width: 400px;
+            height: 100%;
+            background: #0f132a;
+            border-left: 1px solid var(--panel-border);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .side-drawer.open { right: 0; }
+
+        /* Dimmed Background Overlay Shield */
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 199;
+            display: none;
+        }
+        .drawer-overlay.show { display: block; }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .drawer-title { font-size: 1.2rem; font-weight: 700; color: #fff; }
+        .close-drawer-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .history-scroll-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
         .dad-mode-banner {
@@ -151,21 +237,20 @@
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
 
-        /* History Feature Classes */
         .history-card-item {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 10px;
             padding: 14px;
             margin-bottom: 12px;
         }
-        .history-header {
+        .history-card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .history-summary {
             font-size: 0.95rem;
@@ -183,9 +268,9 @@
             font-size: 1rem;
             padding: 2px 6px;
             opacity: 0.6;
-            transition: opacity 0.2s;
         }
         .btn-inline-delete:hover { opacity: 1; }
+        
         .btn-clear-history {
             background: rgba(239, 68, 68, 0.15);
             border: 1px solid var(--accent-danger);
@@ -198,6 +283,21 @@
         }
         .btn-clear-history:hover { background: var(--accent-danger); color: white; }
 
+        .drawer-nav-link {
+            display: block;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            text-align: center;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-top: 15px;
+            font-size: 0.95rem;
+        }
+        .drawer-nav-link:hover { background: rgba(56, 189, 248, 0.2); }
+
         .toast {
             position: fixed;
             bottom: 30px;
@@ -209,30 +309,38 @@
             border-radius: 50px;
             font-weight: 600;
             transition: transform 0.4s ease;
-            z-index: 100;
+            z-index: 300;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
-        
-        .nav-link {
-            color: #38bdf8; 
-            text-decoration: none; 
-            font-weight: 600; 
-            font-size: 0.95rem;
-            transition: color 0.2s ease;
-        }
-        .nav-link:hover { color: #7dd3fc; text-decoration: underline; }
     </style>
 </head>
 <body>
+
+<div class="drawer-overlay" id="drawer-overlay" onclick="toggleDrawer(false)"></div>
+<div class="side-drawer" id="side-drawer">
+    <div class="drawer-header">
+        <span class="drawer-title">⚙️ Options & History</span>
+        <button class="close-drawer-btn" onclick="toggleDrawer(false)">✕</button>
+    </div>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <span style="font-size:0.9rem; font-weight:700; color:var(--text-muted);">Stored Calculations</span>
+        <button class="btn-clear-history" id="clear-history-btn" onclick="clearAllLocalHistory()" style="display:none;">Clear All</button>
+    </div>
+
+    <div class="history-scroll-container" id="local-history-target">
+        <div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.85rem;padding:20px 0;">No logs cached locally on this phone yet.</div>
+    </div>
+
+    <a href="logs.html" class="drawer-nav-link">📋 View Dad's Response Logs →</a>
+</div>
 
 <div class="app-container">
     <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Approve/Reject below and hit save.</div>
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
-        <div id="nav-container" style="text-align: center; margin-top: 5px; margin-bottom: 15px;">
-            <a href="logs.html" class="nav-link">📋 View Dad's Response Logs Archive →</a>
-        </div>
+        <button class="options-menu-btn" id="options-btn" onclick="toggleDrawer(true)" title="Open Options">⋮</button>
     </header>
 
     <div class="card" id="input-card">
@@ -248,16 +356,6 @@
             <span style="color: var(--accent-success)">Total: Ksh <span id="total-amount">0.00</span></span>
         </div>
         <div class="item-list" id="item-list"></div>
-    </div>
-
-    <div class="card" id="personal-history-card">
-        <div class="section-title">
-            <span>🕒 Your Calculation History</span>
-            <button class="btn-clear-history" id="clear-history-btn" onclick="clearAllLocalHistory()" style="display:none;">Clear All</button>
-        </div>
-        <div id="local-history-target">
-            <div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.9rem;padding:10px;">No calculations saved yet. Generate a link or wait for input to save!</div>
-        </div>
     </div>
 
     <div style="margin-top: 20px;">
@@ -289,14 +387,12 @@
             document.getElementById('dad-banner').style.display = 'block';
             document.getElementById('input-card').style.display = 'none';
             document.getElementById('share-btn').style.display = 'none';
-            document.getElementById('nav-container').style.display = 'none';
-            document.getElementById('personal-history-card').style.display = 'none';
+            document.getElementById('options-btn').style.display = 'none';
             document.getElementById('dad-submit-btn').style.display = 'inline-flex';
             document.getElementById('app-title').textContent = "Review Brian's Budget";
             
             await fetchBudgetRecordFromDb(databaseRowId);
         } else {
-            // Load history list immediately on phone load
             renderLocalHistory();
 
             const cachedRaw = localStorage.getItem('bulkRawTextV11') || "";
@@ -308,6 +404,19 @@
             }
         }
     });
+
+    // Control Side Drawer State Visibility Open/Close
+    function toggleDrawer(open) {
+        const drawer = document.getElementById('side-drawer');
+        const overlay = document.getElementById('drawer-overlay');
+        if (open) {
+            drawer.classList.add('open');
+            overlay.classList.add('show');
+        } else {
+            drawer.classList.remove('open');
+            overlay.classList.remove('show');
+        }
+    }
 
     function parseBulkInput() {
         if (isDadMode) return;
@@ -390,7 +499,6 @@
         totalAmountDisplay.textContent = currentCalculatedTotal.toLocaleString('en-KE', {minimumFractionDigits: 2});
     }
 
-    /* Local Device Phone Storage History Engines */
     function saveCalculationToPhoneMemory(itemsCount, totalAmount) {
         if (itemsCount === 0) return;
         
@@ -408,7 +516,6 @@
             rawTextBackup: document.getElementById('bulk-input').value
         };
 
-        // Put newest calculation on top
         localHistory.unshift(newLog);
         localStorage.setItem('phoneCalculationsHistory', JSON.stringify(localHistory));
         renderLocalHistory();
@@ -421,7 +528,7 @@
         let localHistory = JSON.parse(localStorage.getItem('phoneCalculationsHistory') || '[]');
 
         if (localHistory.length === 0) {
-            target.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.9rem;padding:10px;">No calculations saved yet. Generate a link to preserve them!</div>';
+            target.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.85rem;padding:30px 0;">No calculation logs cached on this device yet.</div>';
             clearBtn.style.display = 'none';
             return;
         }
@@ -433,13 +540,13 @@
             const row = document.createElement('div');
             row.className = 'history-card-item';
             row.innerHTML = `
-                <div class="history-header">
+                <div class="history-card-header">
                     <span>📅 ${log.date}</span>
-                    <button class="btn-inline-delete" onclick="deleteLocalHistoryItem('${log.id}')" title="Delete entry">🗑️</button>
+                    <button class="btn-inline-delete" onclick="event.stopPropagation(); deleteLocalHistoryItem('${log.id}')">🗑️</button>
                 </div>
                 <div class="history-summary" style="cursor:pointer;" onclick="reloadSavedText('${encodeURIComponent(log.rawTextBackup)}')">
-                    <span style="font-size:0.85rem;font-weight:normal;color:var(--text-muted);">${log.itemsCount} items parsed</span>
-                    <span style="color:#6366f1;">Ksh ${parseFloat(log.total).toLocaleString('en-KE')} ⚡</span>
+                    <span style="font-size:0.8rem;font-weight:normal;color:var(--text-muted);">${log.itemsCount} lines parsed</span>
+                    <span style="color:#a5b4fc;">Ksh ${parseFloat(log.total).toLocaleString('en-KE')} ⚡</span>
                 </div>
             `;
             target.appendChild(row);
@@ -452,7 +559,8 @@
         if(textarea) {
             textarea.value = decoded;
             parseBulkInput();
-            showToast("📋 Loaded back into working card!");
+            toggleDrawer(false); // Close menu drawer automatically on selection
+            showToast("📋 Loaded history entry!");
         }
     }
 
@@ -479,7 +587,6 @@
     async function uploadAndCreateShortLink() {
         if (budgetItems.length === 0) return alert("Write items first!");
         
-        // Save current data instantly to local history right before pushing cloud link
         saveCalculationToPhoneMemory(budgetItems.length, currentCalculatedTotal);
 
         const shareBtn = document.getElementById('share-btn');
