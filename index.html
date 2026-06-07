@@ -38,7 +38,7 @@
             position: relative;
             text-align: center; 
             margin-bottom: 20px; 
-            padding-right: 40px; /* Space for the 3-dots button */
+            padding-right: 40px;
         }
         
         header h1 {
@@ -50,7 +50,6 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* Modern 3-Dot Options Button Configuration */
         .options-menu-btn {
             position: absolute;
             right: 0;
@@ -71,7 +70,6 @@
         }
         .options-menu-btn:hover { background: rgba(255, 255, 255, 0.15); }
 
-        /* Slide-Out Personal Side Drawer Panel Layout */
         .side-drawer {
             position: fixed;
             top: 0;
@@ -91,7 +89,6 @@
         }
         .side-drawer.open { right: 0; }
 
-        /* Dimmed Background Overlay Shield */
         .drawer-overlay {
             position: fixed;
             top: 0;
@@ -332,7 +329,7 @@
         <div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.85rem;padding:20px 0;">No logs cached locally on this phone yet.</div>
     </div>
 
-    <a href="logs.html" class="drawer-nav-link">📋 View Dad's Response Logs →</a>
+    <a href="logs.html" class="drawer-nav-link">📋 View Response Logs →</a>
 </div>
 
 <div class="app-container">
@@ -345,7 +342,7 @@
 
     <div class="card" id="input-card">
         <div class="bulk-container">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">Type list or paste Dad's text layout response below:</span>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Type list or paste text layout response below:</span>
             <textarea id="bulk-input" rows="8" placeholder="MONMrngToCampus 367&#10;Lunch 200&#10;Eveningbackhome 367"></textarea>
         </div>
     </div>
@@ -359,12 +356,12 @@
     </div>
 
     <div style="margin-top: 20px;">
-        <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">🔗 Generate Short Link for Dad</button>
+        <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">🔗 Generate Link</button>
         <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="saveDadReviewToDb()">💾 Save Review Decisions</button>
     </div>
 </div>
 
-<div class="toast" id="toast">✓ Linked Copied!</div>
+<div class="toast" id="toast">✓ Link Copied!</div>
 
 <script>
     const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
@@ -389,7 +386,7 @@
             document.getElementById('share-btn').style.display = 'none';
             document.getElementById('options-btn').style.display = 'none';
             document.getElementById('dad-submit-btn').style.display = 'inline-flex';
-            document.getElementById('app-title').textContent = "Review Brian's Budget";
+            document.getElementById('app-title').textContent = "Review Budget";
             
             await fetchBudgetRecordFromDb(databaseRowId);
         } else {
@@ -405,7 +402,6 @@
         }
     });
 
-    // Control Side Drawer State Visibility Open/Close
     function toggleDrawer(open) {
         const drawer = document.getElementById('side-drawer');
         const overlay = document.getElementById('drawer-overlay');
@@ -559,7 +555,7 @@
         if(textarea) {
             textarea.value = decoded;
             parseBulkInput();
-            toggleDrawer(false); // Close menu drawer automatically on selection
+            toggleDrawer(false);
             showToast("📋 Loaded history entry!");
         }
     }
@@ -613,15 +609,15 @@
             .then(res => res.ok ? res.text() : longUrl)
             .then(shortUrl => {
                 navigator.clipboard.writeText(shortUrl);
-                showToast("✓ Clean short link copied for Dad!");
+                showToast("✓ Link copied!");
             })
             .catch(() => {
                 navigator.clipboard.writeText(longUrl);
-                showToast("✓ Tracker identifier link copied!");
+                showToast("✓ Link copied!");
             })
             .finally(() => {
                 shareBtn.disabled = false;
-                shareBtn.textContent = "🔗 Generate Short Link for Dad";
+                shareBtn.textContent = "🔗 Generate Link";
                 
                 document.getElementById('bulk-input').value = "";
                 localStorage.removeItem('bulkRawTextV11');
@@ -653,7 +649,7 @@
             alert("Database write connection dropped.");
             dadBtn.disabled = false;
         } else {
-            alert("👍 Decisions recorded! Brian can see them right now on his screen.");
+            alert("👍 Decisions recorded!");
             dadBtn.textContent = "Saved to Database!";
         }
     }
