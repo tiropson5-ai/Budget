@@ -68,6 +68,7 @@
         .bulk-container { display: flex; flex-direction: column; gap: 12px; }
 
         textarea {
+            width: 100%;
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--panel-border);
             border-radius: 10px;
@@ -77,6 +78,7 @@
             outline: none;
             resize: vertical;
             font-family: inherit;
+            box-sizing: border-box;
         }
 
         .btn {
@@ -149,6 +151,53 @@
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
 
+        /* History Feature Classes */
+        .history-card-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .history-summary {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-inline-delete {
+            background: none;
+            border: none;
+            color: var(--accent-danger);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 2px 6px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .btn-inline-delete:hover { opacity: 1; }
+        .btn-clear-history {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--accent-danger);
+            color: #fca5a5;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-clear-history:hover { background: var(--accent-danger); color: white; }
+
         .toast {
             position: fixed;
             bottom: 30px;
@@ -201,6 +250,16 @@
         <div class="item-list" id="item-list"></div>
     </div>
 
+    <div class="card" id="personal-history-card">
+        <div class="section-title">
+            <span>🕒 Your Calculation History</span>
+            <button class="btn-clear-history" id="clear-history-btn" onclick="clearAllLocalHistory()" style="display:none;">Clear All</button>
+        </div>
+        <div id="local-history-target">
+            <div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.9rem;padding:10px;">No calculations saved yet. Generate a link or wait for input to save!</div>
+        </div>
+    </div>
+
     <div style="margin-top: 20px;">
         <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">🔗 Generate Short Link for Dad</button>
         <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="saveDadReviewToDb()">💾 Save Review Decisions</button>
@@ -217,6 +276,7 @@
     let budgetItems = [];
     let isDadMode = false;
     let databaseRowId = null;
+    let currentCalculatedTotal = 0;
 
     window.addEventListener('DOMContentLoaded', async () => {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -230,11 +290,15 @@
             document.getElementById('input-card').style.display = 'none';
             document.getElementById('share-btn').style.display = 'none';
             document.getElementById('nav-container').style.display = 'none';
+            document.getElementById('personal-history-card').style.display = 'none';
             document.getElementById('dad-submit-btn').style.display = 'inline-flex';
             document.getElementById('app-title').textContent = "Review Brian's Budget";
             
             await fetchBudgetRecordFromDb(databaseRowId);
         } else {
+            // Load history list immediately on phone load
+            renderLocalHistory();
+
             const cachedRaw = localStorage.getItem('bulkRawTextV11') || "";
             const textarea = document.getElementById('bulk-input');
             if (textarea) {
@@ -293,7 +357,7 @@
         if (!listContainer || !totalAmountDisplay) return;
         
         listContainer.innerHTML = '';
-        let total = 0;
+        currentCalculatedTotal = 0;
 
         if (budgetItems.length === 0) {
             listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type list items or paste text here...</div>';
@@ -302,7 +366,7 @@
         }
 
         budgetItems.forEach(item => {
-            if (!isDadMode || item.status === 'approve') total += item.amount;
+            if (!isDadMode || item.status === 'approve') currentCalculatedTotal += item.amount;
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'budget-item';
@@ -323,7 +387,87 @@
             listContainer.appendChild(itemDiv);
         });
 
-        totalAmountDisplay.textContent = total.toLocaleString('en-KE', {minimumFractionDigits: 2});
+        totalAmountDisplay.textContent = currentCalculatedTotal.toLocaleString('en-KE', {minimumFractionDigits: 2});
+    }
+
+    /* Local Device Phone Storage History Engines */
+    function saveCalculationToPhoneMemory(itemsCount, totalAmount) {
+        if (itemsCount === 0) return;
+        
+        let localHistory = JSON.parse(localStorage.getItem('phoneCalculationsHistory') || '[]');
+        
+        const timestamp = new Date();
+        const timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const dateStr = timestamp.toLocaleDateString([], {month: 'short', day: 'numeric'});
+
+        const newLog = {
+            id: Date.now().toString(),
+            date: `${dateStr} at ${timeStr}`,
+            itemsCount: itemsCount,
+            total: totalAmount,
+            rawTextBackup: document.getElementById('bulk-input').value
+        };
+
+        // Put newest calculation on top
+        localHistory.unshift(newLog);
+        localStorage.setItem('phoneCalculationsHistory', JSON.stringify(localHistory));
+        renderLocalHistory();
+    }
+
+    function renderLocalHistory() {
+        if (isDadMode) return;
+        const target = document.getElementById('local-history-target');
+        const clearBtn = document.getElementById('clear-history-btn');
+        let localHistory = JSON.parse(localStorage.getItem('phoneCalculationsHistory') || '[]');
+
+        if (localHistory.length === 0) {
+            target.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;font-size:0.9rem;padding:10px;">No calculations saved yet. Generate a link to preserve them!</div>';
+            clearBtn.style.display = 'none';
+            return;
+        }
+
+        clearBtn.style.display = 'inline-block';
+        target.innerHTML = '';
+
+        localHistory.forEach(log => {
+            const row = document.createElement('div');
+            row.className = 'history-card-item';
+            row.innerHTML = `
+                <div class="history-header">
+                    <span>📅 ${log.date}</span>
+                    <button class="btn-inline-delete" onclick="deleteLocalHistoryItem('${log.id}')" title="Delete entry">🗑️</button>
+                </div>
+                <div class="history-summary" style="cursor:pointer;" onclick="reloadSavedText('${encodeURIComponent(log.rawTextBackup)}')">
+                    <span style="font-size:0.85rem;font-weight:normal;color:var(--text-muted);">${log.itemsCount} items parsed</span>
+                    <span style="color:#6366f1;">Ksh ${parseFloat(log.total).toLocaleString('en-KE')} ⚡</span>
+                </div>
+            `;
+            target.appendChild(row);
+        });
+    }
+
+    function reloadSavedText(encodedText) {
+        const decoded = decodeURIComponent(encodedText);
+        const textarea = document.getElementById('bulk-input');
+        if(textarea) {
+            textarea.value = decoded;
+            parseBulkInput();
+            showToast("📋 Loaded back into working card!");
+        }
+    }
+
+    function deleteLocalHistoryItem(id) {
+        let localHistory = JSON.parse(localStorage.getItem('phoneCalculationsHistory') || '[]');
+        localHistory = localHistory.filter(item => item.id !== id);
+        localStorage.setItem('phoneCalculationsHistory', JSON.stringify(localHistory));
+        renderLocalHistory();
+    }
+
+    function clearAllLocalHistory() {
+        if(confirm("Wipe out all stored phone history calculations?")) {
+            localStorage.setItem('phoneCalculationsHistory', '[]');
+            renderLocalHistory();
+        }
     }
 
     function updateItemStatus(id, newStatus) {
@@ -335,6 +479,9 @@
     async function uploadAndCreateShortLink() {
         if (budgetItems.length === 0) return alert("Write items first!");
         
+        // Save current data instantly to local history right before pushing cloud link
+        saveCalculationToPhoneMemory(budgetItems.length, currentCalculatedTotal);
+
         const shareBtn = document.getElementById('share-btn');
         shareBtn.disabled = true;
         shareBtn.textContent = "💾 Cloud uploading...";
@@ -352,7 +499,6 @@
             return;
         }
 
-        // DYNAMIC LINK AUTO-DETECTION ENGINE (Fixes broken redirect paths completely)
         const currentCleanBaseUrl = window.location.href.split('?')[0].split('#')[0];
         const longUrl = currentCleanBaseUrl + '?id=' + data[0].id;
         
