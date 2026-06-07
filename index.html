@@ -166,11 +166,20 @@
 
         .history-item {
             border-left: 3px solid var(--accent-success);
-            padding: 10px;
-            margin-bottom: 10px;
-            background: rgba(255,255,255,0.02);
-            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
             font-size: 0.9rem;
+        }
+
+        .clear-btn {
+            background: none;
+            border: none;
+            color: var(--accent-danger);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
         }
 
         .toast {
@@ -192,7 +201,7 @@
 <body>
 
 <div class="app-container">
-    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and save your response below.</div>
+    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and tap submit to automatically update Brian's history panel.</div>
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
@@ -214,40 +223,50 @@
     </div>
 
     <div class="card" id="history-card" style="display: none;">
-        <div class="section-title">👨‍👦 Dad's Response History</div>
-        <div id="history-list" style="max-height: 200px; overflow-y: auto;">
-            <div style="color:var(--text-muted); font-style: italic;">No saved responses fetched yet.</div>
+        <div class="section-title">
+            <span>👨‍👦 Dad's Saved Responses Log</span>
+            <button class="clear-btn" onclick="clearHistory()">Clear History</button>
+        </div>
+        <div id="history-list" style="max-height: 250px; overflow-y: auto;">
+            <div style="color:var(--text-muted); font-style: italic;">No logs recorded yet. When Dad sends his short link back, it saves right here.</div>
         </div>
     </div>
 
     <div style="margin-top: 20px;">
         <button class="btn btn-share" id="share-btn" onclick="generateShortDadLink()">🔗 Generate Short Link for Dad</button>
-        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponseDirectly()">💾 Save Response & Notify Brian</button>
+        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponseDirectly()">📤 Submit and Generate Log Link</button>
     </div>
 </div>
 
-<div class="toast" id="toast">✓ Action completed successfully!</div>
+<div class="toast" id="toast">✓ Link copied successfully!</div>
 
 <script>
     let budgetItems = [];
     let isDadMode = false;
-    let listUniqueId = "";
 
     const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
-    // Free open cloud bucket to safely save responses live
-    const DB_ENDPOINT = "https://kvdb.io/87wVp77wsh2KjH7q5R6A6R/"; 
 
     window.addEventListener('DOMContentLoaded', () => {
         try {
             const urlParams = new URLSearchParams(window.location.search);
             const dataParam = urlParams.get('b');
-            const idParam = urlParams.get('id');
+            const responseParam = urlParams.get('r'); // New detection flag for Dad's approved logs
 
-            if (idParam) {
-                listUniqueId = idParam;
+            if (responseParam) {
+                // BRAIN'S SCREEN: Catch the responses coming back from Dad and save them
+                try {
+                    const decodedResponse = JSON.parse(decodeURIComponent(escape(atob(responseParam.replace(/\s/g, '')))));
+                    saveToLocalHistory(decodedResponse);
+                    
+                    // Clean URL query bars immediately so refresh doesn't duplicate items
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch(e) {
+                    console.error("Failed to parse response payload", e);
+                }
             }
 
             if (dataParam) {
+                // DAD'S REVIEW SCREEN
                 try {
                     const decodedData = decodeURIComponent(escape(atob(dataParam.replace(/\s/g, ''))));
                     budgetItems = JSON.parse(decodedData);
@@ -262,11 +281,11 @@
                     console.error("Link parsing error", err);
                 }
             } else {
-                // Show history database card on your interface
+                // NORMAL SCREEN FOR BRIAN
                 document.getElementById('history-card').style.display = 'block';
-                fetchResponseHistory();
+                renderHistoryLogs();
 
-                const cachedRaw = localStorage.getItem('bulkRawTextV9') || "";
+                const cachedRaw = localStorage.getItem('bulkRawTextV10') || "";
                 const textarea = document.getElementById('bulk-input');
                 if (textarea) {
                     textarea.value = cachedRaw;
@@ -288,7 +307,7 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV9', rawText);
+        localStorage.setItem('bulkRawTextV10', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
@@ -360,25 +379,20 @@
         shareBtn.disabled = true;
         shareBtn.textContent = "🔄 Shortening Link...";
 
-        // Generate a random ID for this specific list submission
-        const randomListId = 'list_' + Math.floor(Math.random() * 1000000);
-
         const jsonStr = JSON.stringify(budgetItems);
         const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
-        
-        // Appends the data AND the Tracking ID to the URL string
-        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data + '&id=' + randomListId;
+        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data;
         const endpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl);
 
         fetch(endpoint)
             .then(response => response.ok ? response.text() : longUrl)
             .then(shortUrl => {
-                showToast("✓ Link copied! Send to Dad.");
+                showToast("✓ Short link copied! Send it to Dad.");
                 navigator.clipboard.writeText(shortUrl.startsWith('http') ? shortUrl : longUrl);
             })
             .catch(() => {
-                showToast("✓ Long link fallback copied!");
                 navigator.clipboard.writeText(longUrl);
+                showToast("✓ Link copied!");
             })
             .finally(() => {
                 shareBtn.disabled = false;
@@ -386,11 +400,11 @@
             });
     }
 
-    // DAD ACTION: Saves the response cleanly to cloud storage bucket
+    // DAD ACTION: Generates his final responses back into a link format safely
     function submitDadResponseDirectly() {
         const dadBtn = document.getElementById('dad-submit-btn');
         dadBtn.disabled = true;
-        dadBtn.textContent = "⌛ Saving response...";
+        dadBtn.textContent = "⌛ Building safe redirection link...";
 
         let approvedTotal = 0;
         let summary = [];
@@ -399,56 +413,71 @@
             if (item.status === 'approve') approvedTotal += item.amount;
         });
 
-        const payload = {
+        const logData = {
             timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
             date: new Date().toLocaleDateString([], {month: 'short', day: 'numeric'}),
             total: approvedTotal,
             breakdown: summary
         };
 
-        // Push directly to cloud database storage
-        const targetId = listUniqueId || 'brian_latest';
-        fetch(DB_ENDPOINT + targetId, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        })
-        .then(() => {
-            alert("✅ Responses saved! Brian can see them on his screen now.");
-            dadBtn.textContent = "Saved Successfully!";
-        })
-        .catch(() => {
-            alert("Error connecting. Saved inside locally instead.");
+        const responseHash = btoa(unescape(encodeURIComponent(JSON.stringify(logData))));
+        const longReturnUrl = LIVE_WEBSITE_URL + '?r=' + responseHash;
+        const shortenerEndpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longReturnUrl);
+
+        fetch(shortenerEndpoint)
+            .then(res => res.ok ? res.text() : longReturnUrl)
+            .then(shortReturnUrl => {
+                alert("🎉 Review Complete!\n\nClick OK to automatically redirect your answer back onto Brian's website layout log.");
+                window.location.href = shortReturnUrl;
+            })
+            .catch(() => {
+                window.location.href = longReturnUrl;
+            });
+    }
+
+    // SAVING LOGIC: Appends Dad's tracking configurations directly into history log
+    function saveToLocalHistory(logObject) {
+        let currentHistory = JSON.parse(localStorage.getItem('budget_logs_v10')) || [];
+        
+        // Prevent duplicate logging if they click reload
+        const isDuplicate = currentHistory.some(h => h.timestamp === logObject.timestamp && h.date === logObject.date && h.total === logObject.total);
+        if (!isDuplicate) {
+            currentHistory.unshift(logObject); // add to top of stack
+            localStorage.setItem('budget_logs_v10', JSON.stringify(currentHistory));
+        }
+        renderHistoryLogs();
+    }
+
+    // RENDER LOGIC: Reads stored files from system local allocation block
+    function renderHistoryLogs() {
+        const historyContainer = document.getElementById('history-list');
+        if(!historyContainer) return;
+
+        const savedLogs = JSON.parse(localStorage.getItem('budget_logs_v10')) || [];
+        if(savedLogs.length === 0) return;
+
+        historyContainer.innerHTML = '';
+        savedLogs.forEach(data => {
+            const logBlock = document.createElement('div');
+            logBlock.className = 'history-item';
+            logBlock.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:4px; font-size:0.95rem;">
+                    <span>📅 Review: ${data.date} (${data.timestamp})</span>
+                    <span style="color:var(--accent-success)">Ksh ${data.total.toLocaleString('en-KE', {minimumFractionDigits:2})}</span>
+                </div>
+                <div style="color:var(--text-muted); font-size:0.8rem; line-height:1.4;">
+                    ${data.breakdown.join(' | ')}
+                </div>
+            `;
+            historyContainer.appendChild(logBlock);
         });
     }
 
-    // YOUR INTERFACE: Pulls down your Dad's responses from cloud live
-    function fetchResponseHistory() {
-        const historyContainer = document.getElementById('history-list');
-        
-        // Scan general records or track changes
-        fetch(DB_ENDPOINT + '?prefix=list_')
-        .then(res => res.json())
-        .then(keys => {
-            if(!keys || keys.length === 0) return;
-            historyContainer.innerHTML = ''; // wipe loader
-            
-            // Fetch contents of the last 3 budget responses sent by Dad
-            const recentKeys = keys.slice(-3).reverse();
-            recentKeys.forEach(key => {
-                fetch(DB_ENDPOINT + key)
-                .then(r => r.json())
-                .then(data => {
-                    const block = document.createElement('div');
-                    block.className = 'history-item';
-                    block.innerHTML = `
-                        <strong>Review on ${data.date} at ${data.timestamp}</strong><br/>
-                        <span style="color:var(--accent-success);font-weight:bold;">Approved Total: Ksh ${data.total.toLocaleString()}</span><br/>
-                        <small style="color:var(--text-muted); font-size:0.75rem;">${data.breakdown.join(' | ')}</small>
-                    `;
-                    historyContainer.appendChild(block);
-                });
-            });
-        });
+    function clearHistory() {
+        if(confirm("Are you sure you want to completely clear Dad's saved response logs?")) {
+            localStorage.removeItem('budget_logs_v10');
+            location.reload();
+        }
     }
 
     function showToast(message) {
