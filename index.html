@@ -103,7 +103,15 @@
             gap: 8px;
             width: 100%;
             box-sizing: border-box;
+            transition: all 0.2s ease;
         }
+
+        .btn-calc {
+            background: var(--accent-primary);
+            color: white;
+            margin-top: 5px;
+        }
+        .btn-calc:hover { background: var(--accent-hover); }
 
         .btn-share {
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
@@ -186,7 +194,8 @@
     <div class="card" id="input-card">
         <div class="bulk-container">
             <span style="font-size: 0.85rem; color: var(--text-muted);">Type downwards line-by-line:</span>
-            <textarea id="bulk-input" rows="6" placeholder="Token 1000&#10;Food 4500&#10;Internet 2500"></textarea>
+            <textarea id="bulk-input" rows="8" placeholder="Token 1000&#10;Food 4500&#10;Internet 2500"></textarea>
+            <button class="btn btn-calc" onclick="parseBulkInput()">✅ Done / Calculate Total</button>
         </div>
     </div>
 
@@ -207,11 +216,9 @@
 <div class="toast" id="toast">✓ Link copied! Send it to Dad via WhatsApp.</div>
 
 <script>
-    // Global elements initialized safely
     let budgetItems = [];
     let isDadMode = false;
 
-    // Safe Initialization Wrapper to protect against rendering crashes
     window.addEventListener('DOMContentLoaded', () => {
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -219,7 +226,6 @@
 
             if (dataParam) {
                 try {
-                    // Modern decoded method fallback for cross-platform matching
                     const decodedData = decodeURIComponent(escape(atob(dataParam.replace(/\s/g, ''))));
                     budgetItems = JSON.parse(decodedData);
                     isDadMode = true;
@@ -230,23 +236,124 @@
                     document.getElementById('dad-submit-btn').style.display = 'inline-flex';
                     document.getElementById('app-title').textContent = "Review Brian's Budget";
                 } catch(err) {
-                    console.error("Link string decoding failed.", err);
+                    console.error("Link parsing error", err);
                 }
             } else {
-                const bulkInputField = document.getElementById('bulk-input');
-                if (bulkInputField) {
-                    bulkInputField.addEventListener('input', parseBulkInput);
-                    const cachedRaw = localStorage.getItem('bulkRawTextV4') || "";
-                    bulkInputField.value = cachedRaw;
-                    parseBulkInput();
+                const cachedRaw = localStorage.getItem('bulkRawTextV5') || "";
+                const textarea = document.getElementById('bulk-input');
+                if (textarea) {
+                    textarea.value = cachedRaw;
+                    if (cachedRaw.trim() !== "") {
+                        parseBulkInput();
+                    }
                 }
             }
         } catch (globalErr) {
-            console.error("Initialization wrapper bypass triggered", globalErr);
+            console.error(globalErr);
         }
         updateUI();
     });
 
+    function parseBulkInput() {
+        if (isDadMode) return;
+        const textarea = document.getElementById('bulk-input');
+        if (!textarea) return;
+
+        const rawText = textarea.value;
+        localStorage.setItem('bulkRawTextV5', rawText);
+        
+        const lines = rawText.split('\n');
+        budgetItems = [];
+
+        lines.forEach((line, index) => {
+            if (line.trim() === '') return;
+            const match = line.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
+            if (match) {
+                const name = match[1].trim();
+                const amount = parseFloat(match[2]);
+                if (name && !isNaN(amount)) {
+                    budgetItems.push({ id: index, name, amount, status: 'approve' });
+                }
+            }
+        });
+        updateUI();
+    }
+
     function updateUI() {
         const listContainer = document.getElementById('item-list');
-        const totalAmountDisplay
+        const totalAmountDisplay = document.getElementById('total-amount');
+        if (!listContainer || !totalAmountDisplay) return;
+        
+        listContainer.innerHTML = '';
+        let total = 0;
+
+        if (budgetItems.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Paste your list above and tap "Done / Calculate Total"</div>';
+            totalAmountDisplay.textContent = "0.00";
+            return;
+        }
+
+        budgetItems.forEach(item => {
+            total += item.amount;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'budget-item';
+            
+            itemDiv.innerHTML = `
+                <div class="item-details">
+                    <span class="item-title">${item.name}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <span style="font-weight:600;">Ksh ${item.amount.toLocaleString('en-KE',{minimumFractionDigits:2})}</span>
+                    ${isDadMode ? `
+                        <div class="dad-toggle" style="display: flex; gap: 8px;">
+                            <input type="radio" id="app-${item.id}" name="status-${item.id}" value="approve" ${item.status === 'approve' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'approve')">
+                            <label for="app-${item.id}">✔️</label>
+                            <input type="radio" id="rej-${item.id}" name="status-${item.id}" value="reject" ${item.status === 'reject' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'reject')">
+                            <label for="rej-${item.id}">❌</label>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            listContainer.appendChild(itemDiv);
+        });
+
+        totalAmountDisplay.textContent = total.toLocaleString('en-KE', {minimumFractionDigits: 2});
+    }
+
+    function updateItemStatus(id, newStatus) {
+        const item = budgetItems.find(i => i.id === id);
+        if (item) item.status = newStatus;
+    }
+
+    function generateDadLink() {
+        if (budgetItems.length === 0) return alert("Calculate your items first!");
+        const jsonStr = JSON.stringify(budgetItems);
+        const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+        const customDadUrl = window.location.origin + window.location.pathname + '?b=' + base64Data;
+
+        navigator.clipboard.writeText(customDadUrl).then(() => {
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.classList.add('show');
+                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            }
+        }).catch(() => {
+            alert("Link generated! Copy it directly from your address bar.");
+        });
+    }
+
+    function submitDadResponse() {
+        let textMessage = `Hey Brian, I have reviewed your budget list. Here is my response:\n\n`;
+        let approvedTotal = 0;
+
+        budgetItems.forEach(item => {
+            const statusSymbol = item.status === 'approve' ? '✅ Approved' : '❌ Declined';
+            textMessage += `• ${item.name} (Ksh ${item.amount.toLocaleString('en-KE')}): ${statusSymbol}\n`;
+            if (item.status === 'approve') approvedTotal += item.amount;
+        });
+        textMessage += `\nTotal Approved: Ksh ${approvedTotal.toLocaleString('en-KE', {minimumFractionDigits: 2})}\n\nLove, Dad.`;
+        window.open('https://wa.me/?text=' + encodeURIComponent(textMessage), '_blank');
+    }
+</script>
+</body>
+</html>
