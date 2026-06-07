@@ -112,6 +112,11 @@
             font-size: 1.1rem;
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
         }
+        .btn-share:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
 
         .btn-submit-dad {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -200,12 +205,12 @@
     </div>
 
     <div style="margin-top: 20px;">
-        <button class="btn btn-share" id="share-btn" onclick="generateDadLink()">🔗 Copy Special Link for Dad</button>
+        <button class="btn btn-share" id="share-btn" onclick="generateShortDadLink()">🔗 Generate Short Link for Dad</button>
         <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponse()">📤 Send Response back to Brian</button>
     </div>
 </div>
 
-<div class="toast" id="toast">✓ Link copied! Send it to Dad via WhatsApp.</div>
+<div class="toast" id="toast">✓ Short link copied! Send it to Dad.</div>
 
 <script>
     let budgetItems = [];
@@ -231,14 +236,11 @@
                     console.error("Link parsing error", err);
                 }
             } else {
-                const cachedRaw = localStorage.getItem('bulkRawTextV6') || "";
+                const cachedRaw = localStorage.getItem('bulkRawTextV7') || "";
                 const textarea = document.getElementById('bulk-input');
                 if (textarea) {
                     textarea.value = cachedRaw;
-                    
-                    // Trigger calculation whenever user releases a key (catches new lines immediately)
                     textarea.addEventListener('keyup', parseBulkInput);
-                    
                     if (cachedRaw.trim() !== "") {
                         parseBulkInput();
                     }
@@ -256,14 +258,13 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV6', rawText);
+        localStorage.setItem('bulkRawTextV7', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
 
         lines.forEach((line, index) => {
             if (line.trim() === '') return;
-            // Matches name followed by a space and a number at the end
             const match = line.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
             if (match) {
                 const name = match[1].trim();
@@ -322,20 +323,54 @@
         if (item) item.status = newStatus;
     }
 
-    function generateDadLink() {
+    // New logic to convert long hash links to real small URLs
+    function generateShortDadLink() {
         if (budgetItems.length === 0) return alert("Type your items first!");
+        
+        const shareBtn = document.getElementById('share-btn');
+        shareBtn.disabled = true;
+        shareBtn.textContent = "🔄 Generating short link...";
+
         const jsonStr = JSON.stringify(budgetItems);
         const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
-        const customDadUrl = window.location.origin + window.location.pathname + '?b=' + base64Data;
+        const longUrl = window.location.origin + window.location.pathname + '?b=' + base64Data;
 
-        navigator.clipboard.writeText(customDadUrl).then(() => {
+        // Use is.gd open endpoint using a free JSONP bypass tunnel to run completely inside browser
+        const apiTarget = 'https://is.gd/create.php?format=json&url=' + encodeURIComponent(longUrl);
+
+        fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(apiTarget))
+            .then(response => {
+                if (response.ok) return response.json();
+                throw new Error('Network response error');
+            })
+            .then(data => {
+                const result = JSON.parse(data.contents);
+                if (result.shorturl) {
+                    copyToClipboard(result.shorturl);
+                } else {
+                    // Fallback to long link if API is rate-limited
+                    copyToClipboard(longUrl);
+                }
+            })
+            .catch(() => {
+                // Secure backup fallback 
+                copyToClipboard(longUrl);
+            })
+            .finally(() => {
+                shareBtn.disabled = false;
+                shareBtn.textContent = "🔗 Generate Short Link for Dad";
+            });
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
             const toast = document.getElementById('toast');
             if (toast) {
                 toast.classList.add('show');
-                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+                setTimeout(() => { toast.classList.remove('show'); }, 3500);
             }
         }).catch(() => {
-            alert("Link generated! Copy it directly from your address bar.");
+            alert("Link ready: " + text);
         });
     }
 
