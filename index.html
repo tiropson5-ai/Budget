@@ -90,10 +90,6 @@
             font-family: inherit;
         }
 
-        textarea:focus {
-            border-color: var(--accent-primary);
-        }
-
         .btn {
             font-weight: 600;
             font-size: 1rem;
@@ -106,6 +102,7 @@
             justify-content: center;
             gap: 8px;
             width: 100%;
+            box-sizing: border-box;
         }
 
         .btn-share {
@@ -119,4 +116,137 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             font-size: 1.1rem;
-            box-shadow
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            display: none;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 0 0 15px 0;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 8px;
+        }
+
+        .item-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .budget-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 14px 16px;
+            border-radius: 10px;
+        }
+
+        .dad-toggle label {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--panel-border);
+        }
+
+        .dad-toggle input[type="radio"] { display: none; }
+        .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
+        .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--accent-success);
+            color: white;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: transform 0.4s ease;
+            z-index: 100;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Check items and click submit at the bottom.</div>
+    
+    <header>
+        <h1 id="app-title">Bulk Budget Calculator</h1>
+    </header>
+
+    <div class="card" id="input-card">
+        <div class="bulk-container">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Type downwards line-by-line:</span>
+            <textarea id="bulk-input" rows="6" placeholder="Token 1000&#10;Food 4500&#10;Internet 2500"></textarea>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">
+            <span>Calculated Breakdown</span>
+            <span style="color: var(--accent-success)">Total: Ksh <span id="total-amount">0.00</span></span>
+        </div>
+        <div class="item-list" id="item-list"></div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button class="btn btn-share" id="share-btn" onclick="generateDadLink()">🔗 Copy Special Link for Dad</button>
+        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponse()">📤 Send Response back to Brian</button>
+    </div>
+</div>
+
+<div class="toast" id="toast">✓ Link copied! Send it to Dad via WhatsApp.</div>
+
+<script>
+    // Global elements initialized safely
+    let budgetItems = [];
+    let isDadMode = false;
+
+    // Safe Initialization Wrapper to protect against rendering crashes
+    window.addEventListener('DOMContentLoaded', () => {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('b');
+
+            if (dataParam) {
+                try {
+                    // Modern decoded method fallback for cross-platform matching
+                    const decodedData = decodeURIComponent(escape(atob(dataParam.replace(/\s/g, ''))));
+                    budgetItems = JSON.parse(decodedData);
+                    isDadMode = true;
+                    
+                    document.getElementById('dad-banner').style.display = 'block';
+                    document.getElementById('input-card').style.display = 'none';
+                    document.getElementById('share-btn').style.display = 'none';
+                    document.getElementById('dad-submit-btn').style.display = 'inline-flex';
+                    document.getElementById('app-title').textContent = "Review Brian's Budget";
+                } catch(err) {
+                    console.error("Link string decoding failed.", err);
+                }
+            } else {
+                const bulkInputField = document.getElementById('bulk-input');
+                if (bulkInputField) {
+                    bulkInputField.addEventListener('input', parseBulkInput);
+                    const cachedRaw = localStorage.getItem('bulkRawTextV4') || "";
+                    bulkInputField.value = cachedRaw;
+                    parseBulkInput();
+                }
+            }
+        } catch (globalErr) {
+            console.error("Initialization wrapper bypass triggered", globalErr);
+        }
+        updateUI();
+    });
+
+    function updateUI() {
+        const listContainer = document.getElementById('item-list');
+        const totalAmountDisplay
