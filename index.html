@@ -32,7 +32,7 @@
         }
 
         .app-container { width: 100%; max-width: 650px; }
-        header { text-align: center; margin-bottom: 30px; }
+        header { text-align: center; margin-bottom: 20px; }
         header h1 {
             font-size: 2.2rem;
             font-weight: 800;
@@ -149,15 +149,6 @@
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
 
-        .history-item {
-            border-left: 3px solid var(--accent-success);
-            padding: 12px;
-            margin-bottom: 12px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-
         .toast {
             position: fixed;
             bottom: 30px;
@@ -172,6 +163,15 @@
             z-index: 100;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
+        
+        .nav-link {
+            color: #38bdf8; 
+            text-decoration: none; 
+            font-weight: 600; 
+            font-size: 0.95rem;
+            transition: color 0.2s ease;
+        }
+        .nav-link:hover { color: #7dd3fc; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -181,6 +181,9 @@
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
+        <div id="nav-container" style="text-align: center; margin-top: 5px; margin-bottom: 15px;">
+            <a href="logs.html" class="nav-link">📋 View Dad's Response Logs Archive →</a>
+        </div>
     </header>
 
     <div class="card" id="input-card">
@@ -196,13 +199,6 @@
             <span style="color: var(--accent-success)">Total: Ksh <span id="total-amount">0.00</span></span>
         </div>
         <div class="item-list" id="item-list"></div>
-    </div>
-
-    <div class="card" id="history-card" style="display: none;">
-        <div class="section-title">👨‍👦 Live Response Logs from Database</div>
-        <div id="history-list" style="max-height: 250px; overflow-y: auto;">
-            <div style="color:var(--text-muted); font-style: italic;">Checking cloud records...</div>
-        </div>
     </div>
 
     <div style="margin-top: 20px;">
@@ -235,14 +231,12 @@
             document.getElementById('dad-banner').style.display = 'block';
             document.getElementById('input-card').style.display = 'none';
             document.getElementById('share-btn').style.display = 'none';
+            document.getElementById('nav-container').style.display = 'none';
             document.getElementById('dad-submit-btn').style.display = 'inline-flex';
             document.getElementById('app-title').textContent = "Review Brian's Budget";
             
             await fetchBudgetRecordFromDb(databaseRowId);
         } else {
-            document.getElementById('history-card').style.display = 'block';
-            fetchLiveDatabaseLogs();
-
             const cachedRaw = localStorage.getItem('bulkRawTextV11') || "";
             const textarea = document.getElementById('bulk-input');
             if (textarea) {
@@ -359,7 +353,7 @@
                 shareBtn.disabled = false;
                 shareBtn.textContent = "🔗 Generate Short Link for Dad";
                 
-                // Clear out the calculator interface immediately on link creation
+                // Instantly wipe calculator clean for clean state reset layout management
                 document.getElementById('bulk-input').value = "";
                 localStorage.removeItem('bulkRawTextV11');
                 parseBulkInput();
@@ -401,40 +395,6 @@
             budgetItems = data.items;
             updateUI();
         }
-    }
-
-    async function fetchLiveDatabaseLogs() {
-        const listDisplay = document.getElementById('history-list');
-        
-        const { data, error } = await supabaseClient
-            .from('budgets')
-            .select('*')
-            .eq('is_reviewed', true)
-            .order('dad_reviewed_at', { ascending: false })
-            .limit(5);
-
-        if (error || !data || data.length === 0) {
-            listDisplay.innerHTML = '<div style="color:var(--text-muted); font-style: italic;">No records found yet. Logs will populate here instantly when Dad saves.</div>';
-            return;
-        }
-
-        listDisplay.innerHTML = '';
-        data.forEach(row => {
-            let breakdownSummary = row.items.map(i => `${i.name}: ${i.status==='approve'?'✅':'❌'}`).join(' | ');
-            let timeStr = new Date(row.dad_reviewed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            let dateStr = new Date(row.dad_reviewed_at).toLocaleDateString([], {month: 'short', day: 'numeric'});
-            
-            const logBlock = document.createElement('div');
-            logBlock.className = 'history-item';
-            logBlock.innerHTML = `
-                <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.95rem;">
-                    <span>📅 Saved on: ${dateStr} (${timeStr})</span>
-                    <span style="color:var(--accent-success)">Ksh ${parseFloat(row.dad_approved_total).toLocaleString()}</span>
-                </div>
-                <div style="color:var(--text-muted); font-size:0.8rem; margin-top:4px; line-height:1.4;">${breakdownSummary}</div>
-            `;
-            listDisplay.appendChild(logBlock);
-        });
     }
 
     function showToast(message) {
