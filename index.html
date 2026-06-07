@@ -356,7 +356,7 @@
     </div>
 
     <div style="margin-top: 20px;">
-        <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">🔗 Generate Link</button>
+        <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">Generate Link</button>
         <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="saveDadReviewToDb()">💾 Save Review Decisions</button>
     </div>
 </div>
@@ -617,7 +617,7 @@
             })
             .finally(() => {
                 shareBtn.disabled = false;
-                shareBtn.textContent = "🔗 Generate Link";
+                shareBtn.textContent = "Generate Link";
                 
                 document.getElementById('bulk-input').value = "";
                 localStorage.removeItem('bulkRawTextV11');
