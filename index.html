@@ -216,6 +216,9 @@
     let budgetItems = [];
     let isDadMode = false;
 
+    // YOUR ACTUAL LIVE WEBSITE HOME LINK
+    const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
+
     window.addEventListener('DOMContentLoaded', () => {
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -236,7 +239,7 @@
                     console.error("Link parsing error", err);
                 }
             } else {
-                const cachedRaw = localStorage.getItem('bulkRawTextV7') || "";
+                const cachedRaw = localStorage.getItem('bulkRawTextV8') || "";
                 const textarea = document.getElementById('bulk-input');
                 if (textarea) {
                     textarea.value = cachedRaw;
@@ -258,7 +261,7 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV7', rawText);
+        localStorage.setItem('bulkRawTextV8', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
@@ -323,37 +326,35 @@
         if (item) item.status = newStatus;
     }
 
-    // New logic to convert long hash links to real small URLs
     function generateShortDadLink() {
         if (budgetItems.length === 0) return alert("Type your items first!");
         
         const shareBtn = document.getElementById('share-btn');
         shareBtn.disabled = true;
-        shareBtn.textContent = "🔄 Generating short link...";
+        shareBtn.textContent = "🔄 Shortening Link...";
 
         const jsonStr = JSON.stringify(budgetItems);
         const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
-        const longUrl = window.location.origin + window.location.pathname + '?b=' + base64Data;
+        
+        // Forces it to use the live link instead of file:///
+        const longUrl = LIVE_WEBSITE_URL + '?b=' + base64Data;
 
-        // Use is.gd open endpoint using a free JSONP bypass tunnel to run completely inside browser
-        const apiTarget = 'https://is.gd/create.php?format=json&url=' + encodeURIComponent(longUrl);
+        // Clean TinyURL engine endpoint integration
+        const endpoint = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl);
 
-        fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(apiTarget))
+        fetch(endpoint)
             .then(response => {
-                if (response.ok) return response.json();
-                throw new Error('Network response error');
+                if (response.ok) return response.text();
+                throw new Error('API down');
             })
-            .then(data => {
-                const result = JSON.parse(data.contents);
-                if (result.shorturl) {
-                    copyToClipboard(result.shorturl);
+            .then(shortUrl => {
+                if(shortUrl.startsWith('http')) {
+                    copyToClipboard(shortUrl);
                 } else {
-                    // Fallback to long link if API is rate-limited
                     copyToClipboard(longUrl);
                 }
             })
             .catch(() => {
-                // Secure backup fallback 
                 copyToClipboard(longUrl);
             })
             .finally(() => {
@@ -370,7 +371,7 @@
                 setTimeout(() => { toast.classList.remove('show'); }, 3500);
             }
         }).catch(() => {
-            alert("Link ready: " + text);
+            alert("Link generated: " + text);
         });
     }
 
