@@ -14,7 +14,6 @@
             --text-muted: #94a3b8;
             --accent-success: #10b981;
             --accent-danger: #ef4444;
-            --accent-primary: #6366f1;
         }
 
         body {
@@ -35,7 +34,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             gap: 15px;
             flex-wrap: wrap;
         }
@@ -79,53 +78,13 @@
             font-weight: 600;
             font-size: 0.9rem;
             white-space: nowrap;
+            display: none; /* Shown dynamically if logs exist */
             transition: all 0.2s ease;
         }
-        .btn-clear-all:hover { background: var(--accent-danger); color: white; }
-
-        /* Parsing Input Section Card */
-        .parser-card {
-            background: rgba(99, 102, 241, 0.06);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        .parser-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #a5b4fc;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .parser-textarea {
-            width: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--panel-border);
-            border-radius: 10px;
-            color: var(--text-main);
-            padding: 12px;
-            font-size: 0.9rem;
-            outline: none;
-            resize: vertical;
-            box-sizing: border-box;
-            font-family: inherit;
-        }
-        .parser-btn {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        .btn-clear-all:hover {
+            background: var(--accent-danger);
             color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 18px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 10px;
-            width: 100%;
-            transition: opacity 0.2s;
         }
-        .parser-btn:hover { opacity: 0.9; }
 
         .archive-card {
             background: var(--panel-bg);
@@ -135,6 +94,7 @@
             padding: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
             margin-bottom: 20px;
+            position: relative;
         }
 
         .archive-header {
@@ -147,7 +107,10 @@
             gap: 10px;
         }
 
-        .header-meta { display: flex; flex-direction: column; }
+        .header-meta {
+            display: flex;
+            flex-direction: column;
+        }
 
         .right-controls {
             display: flex;
@@ -174,8 +137,14 @@
             cursor: pointer;
             font-size: 0.9rem;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
-        .btn-delete:hover { background: var(--accent-danger); color: white; }
+        .btn-delete:hover {
+            background: var(--accent-danger);
+            color: white;
+        }
 
         .item-row {
             display: flex;
@@ -195,16 +164,10 @@
     <header>
         <h1>📋 Saved Approvals History</h1>
         <div class="action-group">
-            <button id="clear-all-btn" class="btn-clear-all" style="display:none;" onclick="clearAllRecords()">💥 Clear All History</button>
+            <button id="clear-all-btn" class="btn-clear-all" onclick="clearAllRecords()">💥 Clear All History</button>
             <a href="index.html" class="nav-btn">⬅️ Back to Calculator</a>
         </div>
     </header>
-
-    <div class="parser-card">
-        <div class="parser-title">✨ Paste Messy Text Response from Dad</div>
-        <textarea id="messy-input" class="parser-textarea" rows="4" placeholder="Paste the WhatsApp text message here..."></textarea>
-        <button class="parser-btn" onclick="parseTextAndSave()">⚡ Clean & Save to Dashboard History</button>
-    </div>
 
     <div id="archive-target">
         <div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 40px;">
@@ -226,7 +189,8 @@
     async function fetchRecords() {
         const target = document.getElementById('archive-target');
         const clearAllBtn = document.getElementById('clear-all-btn');
-        
+        target.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-style: italic; padding: 40px;">Refreshing archive logs...</div>';
+
         const { data, error } = await supabaseClient
             .from('budgets')
             .select('*')
@@ -267,7 +231,7 @@
                     </div>
                     <div class="right-controls">
                         <div class="total-badge">Approved: Ksh ${parseFloat(row.dad_approved_total).toLocaleString()}</div>
-                        <button class="btn-delete" onclick="deleteRecord('${row.id}')">🗑️</button>
+                        <button class="btn-delete" onclick="deleteRecord('${row.id}')" title="Delete this entry">🗑️</button>
                     </div>
                 </div>
                 <div>${itemsHtml}</div>
@@ -276,72 +240,36 @@
         });
     }
 
-    // New Intelligence Feature: Auto-Sorter Engine
-    async function parseTextAndSave() {
-        const textInput = document.getElementById('messy-input').value.trim();
-        if (!textInput) return alert("Please paste the text response first!");
+    async function deleteRecord(id) {
+        if (!confirm("Are you sure you want to delete this specific review response?")) return;
 
-        const lines = textInput.split('\n');
-        let parsedItems = [];
-        let computedTotal = 0;
-
-        lines.forEach((line, idx) => {
-            // Check if line contains monetary amounts or tracking tags
-            if (!line.includes('Ksh') && !line.includes('ksh')) return;
-
-            // Extract item text prefix inside parent lines
-            let name = line.replace(/[•\-\*]/g, '').split('(Ksh')[0].split('(ksh')[0].trim();
-            
-            // Extract money amount matching boundaries
-            let amountMatch = line.match(/(?:Ksh|ksh)\s*([\d,.]+)/);
-            let amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
-            
-            // Map decisions via status checks
-            let isApproved = line.includes('✅') || line.toLowerCase().includes('approved');
-            let status = isApproved ? 'approve' : 'reject';
-
-            if (name && !isNaN(amount)) {
-                parsedItems.push({ id: idx, name: name, amount: amount, status: status });
-                if (isApproved) computedTotal += amount;
-            }
-        });
-
-        if (parsedItems.length === 0) {
-            return alert("Could not detect any budget lines. Make sure the text includes 'Ksh' and status marks.");
-        }
-
-        // Upload processed sorting payload block right into Cloud storage logs 
         const { error } = await supabaseClient
             .from('budgets')
-            .insert([{
-                raw_list: textInput,
-                items: parsedItems,
-                dad_approved_total: computedTotal,
-                is_reviewed: true,
-                dad_reviewed_at: new Date().toISOString()
-            }]);
+            .delete()
+            .eq('id', id);
 
         if (error) {
-            alert("Database Error: Could not save parsed record.");
+            alert("Database Error: Could not delete record.");
         } else {
-            document.getElementById('messy-input').value = "";
-            alert("⚡ Text sorted flawlessly and logged down in display cards below!");
             fetchRecords();
         }
     }
 
-    async function deleteRecord(id) {
-        if (!confirm("Are you sure you want to delete this specific review response?")) return;
-        const { error } = await supabaseClient.from('budgets').delete().eq('id', id);
-        if (error) alert("Database Error: Could not delete record.");
-        else fetchRecords();
-    }
-
     async function clearAllRecords() {
-        if (!confirm("🚨 Delete ALL history logs permanently?")) return;
-        const { error } = await supabaseClient.from('budgets').delete().eq('is_reviewed', true);
-        if (error) alert("Database Error: Could not clear records.");
-        else fetchRecords();
+        const doubleCheck = confirm("🚨 WARNING:\n\nYou are about to permanently delete ALL history logs inside the database.\n\nThis action cannot be undone. Do you want to proceed?");
+        if (!doubleCheck) return;
+
+        const { error } = await supabaseClient
+            .from('budgets')
+            .delete()
+            .eq('is_reviewed', true);
+
+        if (error) {
+            alert("Database Error: Could not clear all records.");
+        } else {
+            alert("💥 All history logs cleared successfully!");
+            fetchRecords();
+        }
     }
 </script>
 </body>
