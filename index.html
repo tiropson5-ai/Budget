@@ -214,7 +214,6 @@
 <div class="toast" id="toast">✓ Linked Copied!</div>
 
 <script>
-    // Configured with your real verified cluster endpoints
     const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc";
     
@@ -226,7 +225,6 @@
     let databaseRowId = null;
 
     window.addEventListener('DOMContentLoaded', async () => {
-        // Initialize Connection Safely
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         const urlParams = new URLSearchParams(window.location.search);
@@ -360,6 +358,11 @@
             .finally(() => {
                 shareBtn.disabled = false;
                 shareBtn.textContent = "🔗 Generate Short Link for Dad";
+                
+                // Clear out the calculator interface immediately on link creation
+                document.getElementById('bulk-input').value = "";
+                localStorage.removeItem('bulkRawTextV11');
+                parseBulkInput();
             });
     }
 
