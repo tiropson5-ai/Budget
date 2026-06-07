@@ -106,13 +106,6 @@
             transition: all 0.2s ease;
         }
 
-        .btn-calc {
-            background: var(--accent-primary);
-            color: white;
-            margin-top: 5px;
-        }
-        .btn-calc:hover { background: var(--accent-hover); }
-
         .btn-share {
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
             color: white;
@@ -193,9 +186,8 @@
 
     <div class="card" id="input-card">
         <div class="bulk-container">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">Type downwards line-by-line:</span>
-            <textarea id="bulk-input" rows="8" placeholder="Token 1000&#10;Food 4500&#10;Internet 2500"></textarea>
-            <button class="btn btn-calc" onclick="parseBulkInput()">✅ Done / Calculate Total</button>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Type list below. Press <b>Enter</b> to instantly add a line:</span>
+            <textarea id="bulk-input" rows="8" placeholder="MONMrngToCampus 367&#10;Lunch 200&#10;Eveningbackhome 367"></textarea>
         </div>
     </div>
 
@@ -239,10 +231,14 @@
                     console.error("Link parsing error", err);
                 }
             } else {
-                const cachedRaw = localStorage.getItem('bulkRawTextV5') || "";
+                const cachedRaw = localStorage.getItem('bulkRawTextV6') || "";
                 const textarea = document.getElementById('bulk-input');
                 if (textarea) {
                     textarea.value = cachedRaw;
+                    
+                    // Trigger calculation whenever user releases a key (catches new lines immediately)
+                    textarea.addEventListener('keyup', parseBulkInput);
+                    
                     if (cachedRaw.trim() !== "") {
                         parseBulkInput();
                     }
@@ -260,13 +256,14 @@
         if (!textarea) return;
 
         const rawText = textarea.value;
-        localStorage.setItem('bulkRawTextV5', rawText);
+        localStorage.setItem('bulkRawTextV6', rawText);
         
         const lines = rawText.split('\n');
         budgetItems = [];
 
         lines.forEach((line, index) => {
             if (line.trim() === '') return;
+            // Matches name followed by a space and a number at the end
             const match = line.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
             if (match) {
                 const name = match[1].trim();
@@ -288,7 +285,7 @@
         let total = 0;
 
         if (budgetItems.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Paste your list above and tap "Done / Calculate Total"</div>';
+            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type an item with a space and price, then press Enter...</div>';
             totalAmountDisplay.textContent = "0.00";
             return;
         }
@@ -326,7 +323,7 @@
     }
 
     function generateDadLink() {
-        if (budgetItems.length === 0) return alert("Calculate your items first!");
+        if (budgetItems.length === 0) return alert("Type your items first!");
         const jsonStr = JSON.stringify(budgetItems);
         const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
         const customDadUrl = window.location.origin + window.location.pathname + '?b=' + base64Data;
