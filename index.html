@@ -213,8 +213,6 @@
     const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc";
     
-    const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
-    
     let supabaseClient;
     let budgetItems = [];
     let isDadMode = false;
@@ -262,7 +260,6 @@
             const cleanLine = line.trim();
             if (cleanLine === '' || cleanLine.toLowerCase().includes('total approved:')) return;
 
-            // Smart Parser check: Detects Dad's messy text block (handles parenthetical currency notations)
             if (cleanLine.includes('Ksh') || cleanLine.includes('ksh')) {
                 let name = cleanLine.replace(/[•\-\*]/g, '').split('(Ksh')[0].split('(ksh')[0].trim();
                 
@@ -276,7 +273,6 @@
                     budgetItems.push({ id: index, name, amount, status });
                 }
             } 
-            // Standard Parser layout check: Handles 'Lunch 200'
             else {
                 const match = cleanLine.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
                 if (match) {
@@ -356,7 +352,9 @@
             return;
         }
 
-        const longUrl = LIVE_WEBSITE_URL + '?id=' + data[0].id;
+        // DYNAMIC LINK AUTO-DETECTION ENGINE (Fixes broken redirect paths completely)
+        const currentCleanBaseUrl = window.location.href.split('?')[0].split('#')[0];
+        const longUrl = currentCleanBaseUrl + '?id=' + data[0].id;
         
         fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl))
             .then(res => res.ok ? res.text() : longUrl)
@@ -372,7 +370,6 @@
                 shareBtn.disabled = false;
                 shareBtn.textContent = "🔗 Generate Short Link for Dad";
                 
-                // Clear the workspace completely once link copy is performed
                 document.getElementById('bulk-input').value = "";
                 localStorage.removeItem('bulkRawTextV11');
                 parseBulkInput();
