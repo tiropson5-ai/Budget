@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Budget Tracker & Share Panel</title>
+    <title>Quick Bulk Budget Tracker</title>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -73,24 +73,28 @@
             margin-bottom: 24px;
         }
 
-        .input-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr auto;
+        /* Large input block styling */
+        .bulk-container {
+            display: flex;
+            flex-direction: column;
             gap: 12px;
         }
 
-        @media (max-width: 480px) {
-            .input-row { grid-template-columns: 1fr; }
-        }
-
-        input {
+        textarea {
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--panel-border);
             border-radius: 10px;
             color: var(--text-main);
-            padding: 14px 16px;
+            padding: 14px;
             font-size: 1rem;
             outline: none;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
         .btn {
@@ -109,15 +113,6 @@
 
         .btn-primary { background: var(--accent-primary); color: white; }
         .btn-primary:hover { background: var(--accent-hover); }
-        
-        .btn-danger {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--accent-danger);
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            border-radius: 6px;
-        }
-        .btn-danger:hover { background: var(--accent-danger); color: white; }
 
         .btn-share {
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
@@ -155,202 +150,4 @@
             justify-content: space-between;
             align-items: center;
             background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            padding: 14px 16px;
-            border-radius: 10px;
-        }
-
-        .dad-toggle {
-            display: none;
-            gap: 8px;
-        }
-
-        .dad-toggle label {
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            font-weight: 600;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--panel-border);
-        }
-
-        .dad-toggle input[type="radio"] { display: none; }
-        
-        .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
-        .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
-
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--accent-success);
-            color: white;
-            padding: 12px 28px;
-            border-radius: 50px;
-            font-weight: 600;
-            transition: transform 0.4s ease;
-            z-index: 100;
-        }
-        .toast.show { transform: translateX(-50%) translateY(0); }
-    </style>
-</head>
-<body>
-
-<div class="app-container">
-    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Please check items and tap submit below.</div>
-    
-    <header>
-        <h1 id="app-title">Weekly Budget</h1>
-    </header>
-
-    <div class="card" id="input-card">
-        <div class="input-row">
-            <input type="text" id="item-name" placeholder="Expense description..." autocomplete="off">
-            <input type="number" id="item-amount" placeholder="Ksh 0.00" min="0" step="0.01">
-            <button class="btn btn-primary" onclick="addItem()">Add</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">
-            <span>Budget Items</span>
-            <span style="color: var(--accent-success)">Total: Ksh <span id="total-amount">0.00</span></span>
-        </div>
-        <div class="item-list" id="item-list"></div>
-    </div>
-
-    <button class="btn btn-share" id="share-btn" onclick="generateDadLink()">🔗 Copy Special Link for Dad</button>
-    <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="submitDadResponse()">📤 Send Response back to Brian</button>
-</div>
-
-<div class="toast" id="toast">✓ Link copied! Send it to Dad via WhatsApp.</div>
-
-<script>
-    let budgetItems = JSON.parse(localStorage.getItem('sharedBudget')) || [];
-    let isDadMode = false;
-
-    // Check if URL contains data from Dad or Brian
-    const urlParams = new URLSearchParams(window.location.search);
-    const dataParam = urlParams.get('b');
-
-    if (dataParam) {
-        try {
-            budgetItems = JSON.parse(atob(dataParam));
-            isDadMode = true;
-            setupDadModeUI();
-        } catch(e) {
-            console.error("Failed to parse shared link data.");
-        }
-    }
-
-    updateUI();
-
-    function setupDadModeUI() {
-        document.getElementById('dad-banner').style.display = 'block';
-        document.getElementById('input-card').style.display = 'none';
-        document.getElementById('share-btn').style.display = 'none';
-        document.getElementById('dad-submit-btn').style.display = 'inline-flex';
-        document.getElementById('app-title').textContent = "Review Brian's Budget";
-    }
-
-    function addItem() {
-        const nameInput = document.getElementById('item-name');
-        const amountInput = document.getElementById('item-amount');
-        const name = nameInput.value.trim();
-        const amount = parseFloat(amountInput.value);
-
-        if (name === '' || isNaN(amount) || amount <= 0) return;
-
-        budgetItems.push({ id: Date.now(), name, amount, status: 'approve' });
-        localStorage.setItem('sharedBudget', JSON.stringify(budgetItems));
-        
-        nameInput.value = ''; amountInput.value = ''; nameInput.focus();
-        updateUI();
-    }
-
-    function deleteItem(id) {
-        budgetItems = budgetItems.filter(item => item.id !== id);
-        localStorage.setItem('sharedBudget', JSON.stringify(budgetItems));
-        updateUI();
-    }
-
-    function updateUI() {
-        const listContainer = document.getElementById('item-list');
-        listContainer.innerHTML = '';
-        let total = 0;
-
-        if (budgetItems.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">No entries recorded.</div>';
-            document.getElementById('total-amount').textContent = "0.00";
-            return;
-        }
-
-        budgetItems.forEach(item => {
-            total += item.amount;
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'budget-item';
-            
-            itemDiv.innerHTML = `
-                <div class="item-details">
-                    <span class="item-title">${item.name}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <span style="font-weight:600;">Ksh ${item.amount.toLocaleString('en-KE',{minimumFractionDigits:2})}</span>
-                    ${isDadMode ? `
-                        <div class="dad-toggle" style="display: flex;">
-                            <input type="radio" id="app-${item.id}" name="status-${item.id}" value="approve" ${item.status === 'approve' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'approve')">
-                            <label for="app-${item.id}">✔️</label>
-                            <input type="radio" id="rej-${item.id}" name="status-${item.id}" value="reject" ${item.status === 'reject' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'reject')">
-                            <label for="rej-${item.id}">❌</label>
-                        </div>
-                    ` : `
-                        <button class="btn btn-danger" onclick="deleteItem(${item.id})">Delete</button>
-                    `}
-                </div>
-            `;
-            listContainer.appendChild(itemDiv);
-        });
-
-        document.getElementById('total-amount').textContent = total.toLocaleString('en-KE', {minimumFractionDigits: 2});
-    }
-
-    function updateItemStatus(id, newStatus) {
-        const item = budgetItems.find(i => i.id === id);
-        if (item) item.status = newStatus;
-    }
-
-    function generateDadLink() {
-        if (budgetItems.length === 0) return alert("Add items before generating a link!");
-        
-        // Encode item array to safe Base64 string parameters
-        const base64Data = btoa(JSON.stringify(budgetItems));
-        const customDadUrl = `${window.location.origin}${window.location.pathname}?b=${base64Data}`;
-
-        navigator.clipboard.writeText(customDadUrl).then(() => {
-            const toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => { toast.classList.remove('show'); }, 3500);
-        });
-    }
-
-    function submitDadResponse() {
-        let textMessage = `Hey Brian, I have reviewed your budget list. Here is my response:\n\n`;
-        let approvedTotal = 0;
-
-        budgetItems.forEach(item => {
-            const statusSymbol = item.status === 'approve' ? '✅ Approved' : '❌ Declined';
-            textMessage += `• ${item.name} (Ksh ${item.amount.toLocaleString('en-KE')}): ${statusSymbol}\n`;
-            if (item.status === 'approve') approvedTotal += item.amount;
-        });
-
-        textMessage += `\nTotal Approved: Ksh ${approvedTotal.toLocaleString('en-KE', {minimumFractionDigits: 2})}\n\nLove, Dad.`;
-        
-        // Open directly in WhatsApp or fallback to copy
-        const encodedMsg = encodeURIComponent(textMessage);
-        window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
-    }
-</script>
-</body>
-</html>
+            border: 1px solid rgba(2
