@@ -188,7 +188,7 @@
 
     <div class="card" id="input-card">
         <div class="bulk-container">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">Type list below. Press <b>Enter</b> to instantly add a line:</span>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Type list or paste Dad's text layout response below:</span>
             <textarea id="bulk-input" rows="8" placeholder="MONMrngToCampus 367&#10;Lunch 200&#10;Eveningbackhome 367"></textarea>
         </div>
     </div>
@@ -259,13 +259,32 @@
         budgetItems = [];
 
         lines.forEach((line, index) => {
-            if (line.trim() === '') return;
-            const match = line.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
-            if (match) {
-                const name = match[1].trim();
-                const amount = parseFloat(match[2]);
-                if (name && !isNaN(amount)) {
-                    budgetItems.push({ id: index, name, amount, status: 'approve' });
+            const cleanLine = line.trim();
+            if (cleanLine === '' || cleanLine.toLowerCase().includes('total approved:')) return;
+
+            // Smart Parser check: Detects Dad's messy text block (handles parenthetical currency notations)
+            if (cleanLine.includes('Ksh') || cleanLine.includes('ksh')) {
+                let name = cleanLine.replace(/[•\-\*]/g, '').split('(Ksh')[0].split('(ksh')[0].trim();
+                
+                let amountMatch = cleanLine.match(/(?:Ksh|ksh)\s*([\d,.]+)/);
+                let amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
+                
+                let isRejected = cleanLine.includes('❌') || cleanLine.toLowerCase().includes('declined');
+                let status = isRejected ? 'reject' : 'approve';
+
+                if (name && !isNaN(amount) && amount > 0) {
+                    budgetItems.push({ id: index, name, amount, status });
+                }
+            } 
+            // Standard Parser layout check: Handles 'Lunch 200'
+            else {
+                const match = cleanLine.match(/(.+?)(?:\s*-\s*|\s+)(\d+(?:\.\d+)?)\s*$/);
+                if (match) {
+                    const name = match[1].trim();
+                    const amount = parseFloat(match[2]);
+                    if (name && !isNaN(amount)) {
+                        budgetItems.push({ id: index, name, amount, status: 'approve' });
+                    }
                 }
             }
         });
@@ -281,7 +300,7 @@
         let total = 0;
 
         if (budgetItems.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type list items and hit Enter...</div>';
+            listContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">Type list items or paste text here...</div>';
             totalAmountDisplay.textContent = "0.00";
             return;
         }
@@ -353,7 +372,7 @@
                 shareBtn.disabled = false;
                 shareBtn.textContent = "🔗 Generate Short Link for Dad";
                 
-                // Instantly wipe calculator clean for clean state reset layout management
+                // Clear the workspace completely once link copy is performed
                 document.getElementById('bulk-input').value = "";
                 localStorage.removeItem('bulkRawTextV11');
                 parseBulkInput();
