@@ -16,7 +16,7 @@
             --accent-hover: #4f46e5;
             --accent-success: #10b981;
             --accent-danger: #ef4444;
-            --dad-blue: #0ea5e9;
+            --reviewer-blue: #0ea5e9;
         }
 
         body {
@@ -125,9 +125,9 @@
             padding-right: 4px;
         }
 
-        .dad-mode-banner {
+        .reviewer-mode-banner {
             background: rgba(14, 165, 233, 0.15);
-            border: 1px solid var(--dad-blue);
+            border: 1px solid var(--reviewer-blue);
             color: #e0f2fe;
             padding: 15px;
             border-radius: 12px;
@@ -188,7 +188,7 @@
         }
         .btn-share:disabled { background: #475569; cursor: not-allowed; box-shadow: none; }
 
-        .btn-submit-dad {
+        .btn-submit-review {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             font-size: 1.1rem;
@@ -220,7 +220,7 @@
             border-radius: 10px;
         }
 
-        .dad-toggle label {
+        .review-toggle label {
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 0.85rem;
@@ -230,9 +230,9 @@
             border: 1px solid var(--panel-border);
         }
 
-        .dad-toggle input[type="radio"] { display: none; }
-        .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
-        .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
+        .review-toggle input[type="radio"] { display: none; }
+        .review-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
+        .review-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
 
         .history-card-item {
             background: rgba(255, 255, 255, 0.03);
@@ -333,7 +333,7 @@
 </div>
 
 <div class="app-container">
-    <div class="dad-mode-banner" id="dad-banner">👨‍👦 Dad Review Mode: Approve/Reject below and hit save.</div>
+    <div class="reviewer-mode-banner" id="reviewer-banner">📝 Reviewer Mode: Approve or reject items below and save decisions.</div>
     
     <header>
         <h1 id="app-title">Bulk Budget Calculator</h1>
@@ -357,7 +357,7 @@
 
     <div style="margin-top: 20px;">
         <button class="btn btn-share" id="share-btn" onclick="uploadAndCreateShortLink()">Generate Link</button>
-        <button class="btn btn-submit-dad" id="dad-submit-btn" onclick="saveDadReviewToDb()">💾 Save Review Decisions</button>
+        <button class="btn btn-submit-review" id="review-submit-btn" onclick="saveReviewToDb()">💾 Save Review Decisions</button>
     </div>
 </div>
 
@@ -369,7 +369,7 @@
     
     let supabaseClient;
     let budgetItems = [];
-    let isDadMode = false;
+    let isReviewerMode = false;
     let databaseRowId = null;
     let currentCalculatedTotal = 0;
 
@@ -380,12 +380,12 @@
         databaseRowId = urlParams.get('id');
 
         if (databaseRowId) {
-            isDadMode = true;
-            document.getElementById('dad-banner').style.display = 'block';
+            isReviewerMode = true;
+            document.getElementById('reviewer-banner').style.display = 'block';
             document.getElementById('input-card').style.display = 'none';
             document.getElementById('share-btn').style.display = 'none';
             document.getElementById('options-btn').style.display = 'none';
-            document.getElementById('dad-submit-btn').style.display = 'inline-flex';
+            document.getElementById('review-submit-btn').style.display = 'inline-flex';
             document.getElementById('app-title').textContent = "Review Budget";
             
             await fetchBudgetRecordFromDb(databaseRowId);
@@ -402,6 +402,7 @@
         }
     });
 
+    // Toggle panel drawer drawer
     function toggleDrawer(open) {
         const drawer = document.getElementById('side-drawer');
         const overlay = document.getElementById('drawer-overlay');
@@ -415,7 +416,7 @@
     }
 
     function parseBulkInput() {
-        if (isDadMode) return;
+        if (isReviewerMode) return;
         const textarea = document.getElementById('bulk-input');
         if (!textarea) return;
 
@@ -471,7 +472,7 @@
         }
 
         budgetItems.forEach(item => {
-            if (!isDadMode || item.status === 'approve') currentCalculatedTotal += item.amount;
+            if (!isReviewerMode || item.status === 'approve') currentCalculatedTotal += item.amount;
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'budget-item';
@@ -479,8 +480,8 @@
                 <div><span>${item.name}</span></div>
                 <div style="display: flex; align-items: center; gap: 14px;">
                     <span style="font-weight:600; color:${item.status==='reject'?'var(--accent-danger)':'white'}">Ksh ${item.amount.toLocaleString('en-KE')}</span>
-                    ${isDadMode ? `
-                        <div class="dad-toggle">
+                    ${isReviewerMode ? `
+                        <div class="review-toggle">
                             <input type="radio" id="app-${item.id}" name="status-${item.id}" value="approve" ${item.status === 'approve' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'approve')">
                             <label for="app-${item.id}">✔️</label>
                             <input type="radio" id="rej-${item.id}" name="status-${item.id}" value="reject" ${item.status === 'reject' ? 'checked' : ''} onchange="updateItemStatus(${item.id}, 'reject')">
@@ -518,7 +519,7 @@
     }
 
     function renderLocalHistory() {
-        if (isDadMode) return;
+        if (isReviewerMode) return;
         const target = document.getElementById('local-history-target');
         const clearBtn = document.getElementById('clear-history-btn');
         let localHistory = JSON.parse(localStorage.getItem('phoneCalculationsHistory') || '[]');
@@ -625,10 +626,11 @@
             });
     }
 
-    async function saveDadReviewToDb() {
-        const dadBtn = document.getElementById('dad-submit-btn');
-        dadBtn.disabled = true;
-        dadBtn.textContent = "⌛ Saving decisions...";
+    // Generalized decision logging handler
+    async function saveReviewToDb() {
+        const reviewBtn = document.getElementById('review-submit-btn');
+        reviewBtn.disabled = true;
+        reviewBtn.textContent = "⌛ Saving decisions...";
 
         let approvedTotal = 0;
         budgetItems.forEach(item => {
@@ -647,10 +649,10 @@
 
         if (error) {
             alert("Database write connection dropped.");
-            dadBtn.disabled = false;
+            reviewBtn.disabled = false;
         } else {
             alert("👍 Decisions recorded!");
-            dadBtn.textContent = "Saved to Database!";
+            reviewBtn.textContent = "Saved to Database!";
         }
     }
 
