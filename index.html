@@ -148,7 +148,7 @@
         .dad-toggle input[type="radio"] { display: none; }
         .dad-toggle input[value="approve"]:checked + label { background: var(--accent-success); color: white; }
         .dad-toggle input[value="reject"]:checked + label { background: var(--accent-danger); color: white; }
-sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc
+
         .history-item {
             border-left: 3px solid var(--accent-success);
             padding: 12px;
@@ -214,9 +214,9 @@ sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc
 <div class="toast" id="toast">✓ Linked Copied!</div>
 
 <script>
-    // Configured directly to your real Database cluster endpoints
+    // Configured with your real verified cluster endpoints
     const SUPABASE_URL = "https://mvbhmhqibwmsudztnemc.supabase.co";
-    const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
+    const SUPABASE_ANON_KEY = "sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc";
     
     const LIVE_WEBSITE_URL = "https://tiropson5-ai.github.io/Budget/";
     
@@ -340,7 +340,7 @@ sb_publishable_rwbT71fupdTCdDUeZG5Jwg_LZafKkfc
             .select();
 
         if (error || !data) {
-            alert("Database Error: Make sure you ran the SQL script and added your Anon key.");
+            alert("Database Connection Error. Please verify Table Policies.");
             shareBtn.disabled = false;
             return;
         }
